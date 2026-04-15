@@ -10,9 +10,11 @@ interface Props {
   projectId: string
   onClose: () => void
   onRefresh: () => void
+  onEdit: () => void
+  onDeleted: () => void
 }
 
-export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh }: Props) {
+export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEdit, onDeleted }: Props) {
   const [ops, setOps] = useState<TaskOp[]>([])
   const [runs, setRuns] = useState<TaskRun[]>([])
   const [selectedRun, setSelectedRun] = useState<TaskRun | null>(null)
@@ -53,6 +55,12 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh }: Pr
     onRefresh()
   }
 
+  async function handleDelete() {
+    if (!confirm(`确定删除任务「${task.title}」？`)) return
+    await api.tasks.delete(task.id)
+    onDeleted()
+  }
+
   return (
     <aside className="w-80 flex-shrink-0 border-l border-gray-100 flex flex-col h-full bg-white">
       {/* Header */}
@@ -71,11 +79,18 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh }: Pr
             </span>
           </div>
         </div>
-        <button onClick={onClose} className="ml-2 text-gray-400 hover:text-gray-600 flex-shrink-0">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+          <button onClick={onEdit} className="text-gray-400 hover:text-gray-600 p-0.5" title="编辑">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-0.5" title="关闭">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -280,14 +295,22 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh }: Pr
             </button>
           )}
         </div>
-        {task.assignee === 'ai' && task.status !== 'done' && task.status !== 'cancelled' && (
+        <div className="flex gap-2">
+          {task.assignee === 'ai' && task.status !== 'done' && task.status !== 'cancelled' && (
+            <button
+              onClick={handleToggleEnabled}
+              className="flex-1 py-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              {task.enabled ? '暂停调度' : '恢复调度'}
+            </button>
+          )}
           <button
-            onClick={handleToggleEnabled}
-            className="w-full py-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={handleDelete}
+            className="py-1.5 px-3 text-xs text-red-400 hover:text-red-600 transition-colors"
           >
-            {task.enabled ? '暂停调度' : '恢复调度'}
+            删除
           </button>
-        )}
+        </div>
       </div>
     </aside>
   )

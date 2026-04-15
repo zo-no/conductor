@@ -97,8 +97,7 @@ conductor prompt delete [--project <id>]
 
 ```bash
 conductor daemon start    # 启动后台调度器
-conductor daemon stop
-conductor daemon status
+conductor daemon status   # 检查 daemon 是否在运行
 conductor version
 conductor info [--json]
 ```
@@ -112,26 +111,30 @@ conductor info [--json]
 ### Projects
 
 ```
-GET    /api/projects          列出所有项目
-POST   /api/projects          创建项目
-GET    /api/projects/:id      获取项目
-PATCH  /api/projects/:id      更新项目
-DELETE /api/projects/:id      删除项目
+GET    /api/projects              列出所有项目
+POST   /api/projects              创建项目
+GET    /api/projects/:id          获取项目
+PATCH  /api/projects/:id          更新项目
+DELETE /api/projects/:id          删除项目
+POST   /api/projects/:id/archive  归档项目
+POST   /api/projects/:id/unarchive 取消归档
 ```
 
 ### Tasks
 
 ```
-GET    /api/tasks             列出任务（?projectId= &kind= &status= &assignee=）
-POST   /api/tasks             创建任务
-GET    /api/tasks/:id         获取任务
-PATCH  /api/tasks/:id         更新任务
-DELETE /api/tasks/:id         删除任务
-POST   /api/tasks/:id/run     手动触发
-POST   /api/tasks/:id/done    标记完成（人类任务）
-POST   /api/tasks/:id/cancel  取消
-GET    /api/tasks/:id/logs    执行日志
-GET    /api/tasks/:id/ops     操作日志
+GET    /api/tasks                  列出任务（?projectId= &kind= &status= &assignee=）
+POST   /api/tasks                  创建任务
+GET    /api/tasks/:id              获取任务
+PATCH  /api/tasks/:id              更新任务
+DELETE /api/tasks/:id              删除任务
+POST   /api/tasks/:id/run          手动触发
+POST   /api/tasks/:id/done         标记完成（人类任务）
+POST   /api/tasks/:id/cancel       取消
+GET    /api/tasks/:id/logs         执行日志
+GET    /api/tasks/:id/ops          操作日志
+GET    /api/tasks/:id/runs         执行记录列表
+GET    /api/tasks/:id/runs/:runId/spool  某次执行的流式输出行
 ```
 
 ### Prompts
@@ -143,3 +146,13 @@ GET    /api/prompts/project/:id     获取项目级 prompt
 PATCH  /api/prompts/project/:id     更新项目级 prompt
 DELETE /api/prompts/project/:id     删除项目级 prompt
 ```
+
+### Events（SSE）
+
+```
+GET    /api/events                 SSE 事件流（?projectId= 可过滤项目）
+```
+
+事件类型：`connected` | `task_created` | `task_updated` | `task_deleted` | `run_line`
+
+`run_line` 事件携带 `{ taskId, runId, line, ts }`，用于前端实时展示 AI 执行输出。

@@ -12,13 +12,15 @@ CREATE TABLE projects (
   name         TEXT NOT NULL,
   goal         TEXT,
   work_dir     TEXT,
-  system_prompt TEXT,
+  system_prompt TEXT,   -- 项目级 prompt（直接存在项目上，供 UI 读写）
   archived     INTEGER NOT NULL DEFAULT 0,
   archived_at  TEXT,
   created_at   TEXT NOT NULL,
   updated_at   TEXT NOT NULL
 ) STRICT;
 ```
+
+> `system_prompt` 字段和 `system_prompts` 表的关系见 [execution-model.md](execution-model.md)。
 
 ---
 
@@ -62,6 +64,10 @@ CREATE TABLE tasks (
 
   enabled              INTEGER NOT NULL DEFAULT 1,
   created_by           TEXT NOT NULL DEFAULT 'human',
+
+  -- session 连续性
+  last_session_id      TEXT,   -- 最近一次执行的 agent session ID（快速查询缓存）
+
   created_at           TEXT NOT NULL,
   updated_at           TEXT NOT NULL
 ) STRICT;
@@ -119,6 +125,44 @@ CREATE INDEX idx_task_ops_created ON task_ops(created_at DESC);
 
 ---
 
+## task_runs 表
+
+每次 AI 任务执行对应一条记录，任务删除时级联删除。
+
+```sql
+CREATE TABLE task_runs (
+  id           TEXT PRIMARY KEY NOT NULL,
+  task_id      TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  status       TEXT NOT NULL DEFAULT 'running',  -- 'running' | 'done' | 'failed' | 'cancelled'
+  triggered_by TEXT NOT NULL,
+  session_id   TEXT,   -- agent session ID（claude UUID / codex UUID），用于 resume
+  started_at   TEXT NOT NULL,
+  completed_at TEXT,
+  error        TEXT
+) STRICT;
+
+CREATE INDEX idx_task_runs_task ON task_runs(task_id, started_at DESC);
+```
+
+---
+
+## task_run_spool 表
+
+存储 AI 执行时的逐行输出（claude CLI 的 stream-json 输出），用于前端实时展示。任务运行记录删除时级联删除。
+
+```sql
+CREATE TABLE task_run_spool (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id  TEXT NOT NULL REFERENCES task_runs(id) ON DELETE CASCADE,
+  ts      TEXT NOT NULL,
+  line    TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX idx_spool_run ON task_run_spool(run_id, id ASC);
+```
+
+---
+
 ## system_prompts 表
 
 ```sql
@@ -132,6 +176,8 @@ CREATE TABLE system_prompts (
 ---
 
 ## settings 表
+
+通用键值存储，用于持久化运行时配置。当前未使用，预留扩展。
 
 ```sql
 CREATE TABLE settings (

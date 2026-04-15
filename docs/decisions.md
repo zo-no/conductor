@@ -27,4 +27,4 @@
 | human-in-the-loop | 支持，AI 创建 human 任务阻塞自己，人类完成后自动恢复 |
 | CLI 认证 | 不需要，直接操作本地 SQLite |
 | HTTP 认证 | 一期不做，本地工具默认信任 |
-| 与 MelodySync 关系 | MelodySync 是 conductor 的第一个重度用户，通过 HTTP API 消费 |
+| 外部项目接入方式 | 两种方式：HTTP API（适合服务端集成）或 CLI（适合本地脚本/AI 调用），详见 [integration.md](integration.md) |

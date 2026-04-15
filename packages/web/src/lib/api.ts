@@ -31,6 +31,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
+export interface SystemPrompt {
+  key: string
+  content: string
+  updatedAt: string
+}
+
 // Projects
 export const api = {
   projects: {
@@ -41,6 +47,20 @@ export const api = {
     update: (id: string, data: Partial<Project>) =>
       request<Project>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => request<{ ok: boolean }>(`/projects/${id}`, { method: 'DELETE' }),
+    archive: (id: string) => request<Project>(`/projects/${id}/archive`, { method: 'POST' }),
+    unarchive: (id: string) => request<Project>(`/projects/${id}/unarchive`, { method: 'POST' }),
+  },
+
+  prompts: {
+    getSystem: () => request<SystemPrompt | null>('/prompts/system').catch(() => null),
+    setSystem: (content: string) =>
+      request<SystemPrompt>('/prompts/system', { method: 'PATCH', body: JSON.stringify({ content }) }),
+    getProject: (projectId: string) =>
+      request<SystemPrompt | null>(`/prompts/project/${projectId}`).catch(() => null),
+    setProject: (projectId: string, content: string) =>
+      request<SystemPrompt>(`/prompts/project/${projectId}`, { method: 'PATCH', body: JSON.stringify({ content }) }),
+    deleteProject: (projectId: string) =>
+      request<{ ok: boolean }>(`/prompts/project/${projectId}`, { method: 'DELETE' }),
   },
 
   tasks: {

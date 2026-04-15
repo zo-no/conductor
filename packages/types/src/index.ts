@@ -58,6 +58,8 @@ export interface Task {
 
   enabled: boolean
   createdBy: 'human' | 'ai'
+
+  lastSessionId?: string   // 最近一次执行的 agent session ID，用于 continueSession
 }
 
 // Schedule
@@ -87,10 +89,12 @@ export interface ScriptExecutor {
   timeout?: number     // 秒，默认 300
 }
 
+export type AgentKind = 'claude' | 'codex'
+
 export interface AiPromptExecutor {
   kind: 'ai_prompt'
   prompt: string
-  tool?: string
+  agent?: AgentKind   // 使用哪个 agent CLI，默认 'claude'
   model?: string
 }
 
@@ -106,7 +110,7 @@ export interface HttpExecutor {
 export type TaskExecutor = ScriptExecutor | AiPromptExecutor | HttpExecutor
 
 export interface ExecutorOptions {
-  includeLastOutput?: boolean              // 注入上次执行结果
+  continueSession?: boolean                // resume 上次对话 session（默认 false）
   customVars?: Record<string, string>      // 用户自定义占位符变量
   reviewOnComplete?: boolean               // 执行完创建人类 review 任务
 }

@@ -1,23 +1,14 @@
 # 数据模型
 
+> 类型定义见 [`packages/types/src/index.ts`](../packages/types/src/index.ts)，本文档只记录设计意图和约束。
+
+---
+
 ## Project
 
-```typescript
-interface Project {
-  id: string           // 'proj_' + hex，不可变
-  createdAt: string
-  updatedAt: string
+字段：`id`（`proj_` + hex，不可变）、`name`、`goal`（可选）、`workDir`（AI 执行任务的默认目录）、`archived`。
 
-  name: string
-  goal?: string        // 可选目标描述，注入 AI 上下文
-
-  workDir?: string     // AI 执行任务时的工作目录
-  systemPrompt?: string
-
-  archived: boolean
-  archivedAt?: string
-}
-```
+> `goal` 和 `workDir` 不直接注入占位符，需要通过 `customVars` 使用。
 
 ---
 
@@ -37,51 +28,6 @@ interface Project {
 | ai | once | 手动触发的 AI 任务 |
 | ai | scheduled | 定时执行的 AI 任务 |
 | ai | recurring | 周期执行的 AI 任务（每日晨报） |
-
-```typescript
-interface Task {
-  id: string           // 'task_' + hex
-  createdAt: string
-  updatedAt: string
-
-  projectId: string
-
-  title: string
-  description?: string
-
-  assignee: 'ai' | 'human'
-  kind: 'once' | 'scheduled' | 'recurring'
-  status: TaskStatus
-
-  order?: number       // 展示顺序（用户可拖拽排序）
-  dependsOn?: string   // 前置任务 id，该任务 done 后本任务才触发
-
-  scheduleConfig?: ScheduleConfig
-  executor?: TaskExecutor
-  executorOptions?: ExecutorOptions
-
-  // human 任务
-  waitingInstructions?: string
-  sourceTaskId?: string
-
-  // AI blocked/恢复
-  blockedByTaskId?: string
-  completionOutput?: string
-
-  enabled: boolean
-  createdBy: 'human' | 'ai'
-}
-```
-
-### TaskStatus
-
-```typescript
-// 人类任务
-type HumanTaskStatus = 'pending' | 'done' | 'cancelled'
-
-// AI 任务
-type AiTaskStatus = 'pending' | 'running' | 'done' | 'failed' | 'cancelled' | 'blocked'
-```
 
 ### 状态转移
 
@@ -104,104 +50,29 @@ pending → done       （checkbox 勾选 / conductor task done）
 pending → cancelled  （conductor task cancel）
 ```
 
-### ScheduleConfig
+---
 
-```typescript
-interface ScheduledConfig {
-  kind: 'scheduled'
-  scheduledAt: string   // ISO 8601，必须是未来时间
-}
+### TaskRun
 
-interface RecurringConfig {
-  kind: 'recurring'
-  cron: string
-  timezone?: string
-  lastRunAt?: string
-  nextRunAt?: string
-}
-```
+每次 AI 任务执行对应一条 `task_run` 记录，包含：
+- `sessionId`：本次执行产生的 agent session ID（claude/codex 各自的格式）
+- `status`：`running` | `done` | `failed` | `cancelled`
+- `triggeredBy`：触发来源
 
-### TaskExecutor
-
-```typescript
-interface ScriptExecutor {
-  kind: 'script'
-  command: string
-  workDir?: string      // 默认 project.workDir
-  env?: Record<string, string>
-  timeout?: number      // 秒，默认 300
-}
-
-interface AiPromptExecutor {
-  kind: 'ai_prompt'
-  prompt: string        // 支持占位符
-  tool?: string
-  model?: string
-}
-
-interface HttpExecutor {
-  kind: 'http'
-  url: string
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE'
-  headers?: Record<string, string>
-  body?: string
-  timeout?: number
-}
-```
-
-### ExecutorOptions
-
-```typescript
-interface ExecutorOptions {
-  includeLastOutput?: boolean           // 注入上次执行结果到 {lastOutput}
-  customVars?: Record<string, string>   // 自定义占位符变量
-  reviewOnComplete?: boolean            // 执行完创建人类 review 任务
-}
-```
+`task_runs` 和 `task_run_spool`（逐行输出）任务删除时级联删除。
 
 ---
 
 ## TaskLog
 
-```typescript
-interface TaskLog {
-  id: string
-  taskId: string
-  startedAt: string
-  completedAt?: string
-  status: 'success' | 'failed' | 'cancelled' | 'skipped'
-  output?: string       // 截断至 64KB
-  error?: string
-  triggeredBy: 'manual' | 'scheduler' | 'api' | 'cli'
-  skipReason?: string
-}
-```
+每个任务保留最近 **50 条**，任务删除时级联删除。
 
-保留策略：每个任务最近 50 条。
+`triggeredBy`：`manual` | `scheduler` | `api` | `cli`
 
 ---
 
 ## TaskOps
 
-```typescript
-interface TaskOp {
-  id: string
-  taskId: string        // 任务删除后仍保留（永久保留）
-  op: TaskOpKind
-  fromStatus?: string
-  toStatus?: string
-  actor: 'human' | 'ai' | 'scheduler'
-  note?: string
-  createdAt: string
-}
+**永久保留**，任务删除时不级联删除（用于审计）。
 
-type TaskOpKind =
-  | 'created'
-  | 'triggered'
-  | 'status_changed'
-  | 'done'
-  | 'cancelled'
-  | 'review_created'
-  | 'unblocked'
-  | 'deleted'
-```
+`op` 类型：`created` | `triggered` | `status_changed` | `done` | `cancelled` | `review_created` | `unblocked` | `deleted`

@@ -5,6 +5,8 @@ import { useSSE } from './hooks/useSSE'
 import { Sidebar } from './components/layout/Sidebar'
 import { Timeline } from './components/tasks/Timeline'
 import { TaskDetail } from './components/tasks/TaskDetail'
+import { TaskForm } from './components/tasks/TaskForm'
+import { ProjectSettings } from './components/projects/ProjectSettings'
 
 type AssigneeTab = 'human' | 'ai'
 
@@ -16,13 +18,24 @@ export default function App() {
   const [assigneeTab, setAssigneeTab] = useState<AssigneeTab>('human')
   const [loading, setLoading] = useState(true)
 
+  // Modals
+  const [showTaskForm, setShowTaskForm] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [settingsProject, setSettingsProject] = useState<Project | null>(null)
+
   // Load projects
-  useEffect(() => {
-    api.projects.list().then(ps => {
+  const loadProjects = useCallback(() => {
+    return api.projects.list().then(ps => {
       setProjects(ps)
+      return ps
+    })
+  }, [])
+
+  useEffect(() => {
+    loadProjects().then(ps => {
       if (ps.length > 0) setSelectedProjectId(ps[0].id)
     }).finally(() => setLoading(false))
-  }, [])
+  }, [loadProjects])
 
   // Load tasks for selected project
   const loadTasks = useCallback(() => {
@@ -56,24 +69,52 @@ export default function App() {
     const name = prompt('项目名称')
     if (!name?.trim()) return
     const project = await api.projects.create({ name: name.trim() })
-    setProjects(ps => [...ps, project])
+    await loadProjects()
     setSelectedProjectId(project.id)
   }
 
-  async function handleNewTask() {
-    if (!selectedProjectId) return
-    const title = prompt('任务标题')
-    if (!title?.trim()) return
-    await api.tasks.create({
-      projectId: selectedProjectId,
-      title: title.trim(),
-      assignee: 'human',
-      kind: 'once',
-    })
+  function handleNewTask() {
+    setEditingTask(null)
+    setShowTaskForm(true)
+  }
+
+  function handleEditTask(task: Task) {
+    setEditingTask(task)
+    setShowTaskForm(true)
+  }
+
+  function handleTaskFormDone() {
+    setShowTaskForm(false)
+    setEditingTask(null)
     loadTasks()
   }
 
-  const projectTasks = tasks // already filtered by projectId in loadTasks
+  function handleTaskDeleted() {
+    setSelectedTask(null)
+    loadTasks()
+  }
+
+  function handleProjectSettingsDone(updated?: Project) {
+    setSettingsProject(null)
+    loadProjects().then(ps => {
+      // If selected project was deleted, select first available
+      if (selectedProjectId && !ps.find(p => p.id === selectedProjectId)) {
+        setSelectedProjectId(ps.length > 0 ? ps[0].id : null)
+        setSelectedTask(null)
+      }
+    })
+    if (updated) loadTasks()
+  }
+
+  function handleProjectDeleted() {
+    setSettingsProject(null)
+    loadProjects().then(ps => {
+      setSelectedProjectId(ps.length > 0 ? ps[0].id : null)
+      setSelectedTask(null)
+    })
+  }
+
+  const projectTasks = tasks
 
   // Mobile: detect screen size
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
@@ -86,79 +127,114 @@ export default function App() {
     )
   }
 
+  const modals = (
+    <>
+      {showTaskForm && selectedProjectId && (
+        <TaskForm
+          projectId={selectedProjectId}
+          task={editingTask ?? undefined}
+          onDone={handleTaskFormDone}
+          onCancel={() => { setShowTaskForm(false); setEditingTask(null) }}
+        />
+      )}
+      {settingsProject && (
+        <ProjectSettings
+          project={settingsProject}
+          onDone={handleProjectSettingsDone}
+          onDelete={handleProjectDeleted}
+        />
+      )}
+    </>
+  )
+
   if (isMobile) {
-    return <MobileLayout
-      projects={projects}
-      tasks={projectTasks}
-      allTasks={tasks}
-      selectedProjectId={selectedProjectId}
-      selectedTask={selectedTask}
-      assigneeTab={assigneeTab}
-      onSelectProject={handleSelectProject}
-      onSelectTask={setSelectedTask}
-      onCloseTask={() => setSelectedTask(null)}
-      onRefresh={loadTasks}
-      onNewProject={handleNewProject}
-      onTabChange={setAssigneeTab}
-    />
+    return (
+      <>
+        <MobileLayout
+          projects={projects}
+          tasks={projectTasks}
+          allTasks={tasks}
+          selectedProjectId={selectedProjectId}
+          selectedTask={selectedTask}
+          assigneeTab={assigneeTab}
+          onSelectProject={handleSelectProject}
+          onSelectTask={setSelectedTask}
+          onCloseTask={() => setSelectedTask(null)}
+          onEditTask={handleEditTask}
+          onDeletedTask={handleTaskDeleted}
+          onRefresh={loadTasks}
+          onNewProject={handleNewProject}
+          onNewTask={handleNewTask}
+          onSettings={setSettingsProject}
+          onTabChange={setAssigneeTab}
+        />
+        {modals}
+      </>
+    )
   }
 
   return (
-    <div className="h-screen flex bg-white overflow-hidden">
-      {/* Sidebar */}
-      <Sidebar
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-        tasks={tasks}
-        onSelect={handleSelectProject}
-        onNewProject={handleNewProject}
-      />
-
-      {/* Main timeline */}
-      <main className="flex-1 overflow-y-auto">
-        {selectedProjectId ? (
-          <>
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between z-10">
-              <h2 className="text-sm font-semibold text-gray-800">
-                {projects.find(p => p.id === selectedProjectId)?.name ?? ''}
-              </h2>
-              <button
-                onClick={handleNewTask}
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                新建任务
-              </button>
-            </div>
-            <div className="px-6 py-4 max-w-2xl">
-              <Timeline
-                tasks={projectTasks}
-                onSelect={setSelectedTask}
-                onRefresh={loadTasks}
-                selectedTaskId={selectedTask?.id}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-            选择或创建一个项目
-          </div>
-        )}
-      </main>
-
-      {/* Task detail drawer */}
-      {selectedTask && selectedProjectId && (
-        <TaskDetail
-          task={selectedTask}
-          allTasks={tasks}
-          projectId={selectedProjectId}
-          onClose={() => setSelectedTask(null)}
-          onRefresh={loadTasks}
+    <>
+      <div className="h-screen flex bg-white overflow-hidden">
+        {/* Sidebar */}
+        <Sidebar
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          tasks={tasks}
+          onSelect={handleSelectProject}
+          onNewProject={handleNewProject}
+          onSettings={setSettingsProject}
         />
-      )}
-    </div>
+
+        {/* Main timeline */}
+        <main className="flex-1 overflow-y-auto">
+          {selectedProjectId ? (
+            <>
+              <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between z-10">
+                <h2 className="text-sm font-semibold text-gray-800">
+                  {projects.find(p => p.id === selectedProjectId)?.name ?? ''}
+                </h2>
+                <button
+                  onClick={handleNewTask}
+                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  新建任务
+                </button>
+              </div>
+              <div className="px-6 py-4 max-w-2xl">
+                <Timeline
+                  tasks={projectTasks}
+                  onSelect={setSelectedTask}
+                  onRefresh={loadTasks}
+                  selectedTaskId={selectedTask?.id}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+              选择或创建一个项目
+            </div>
+          )}
+        </main>
+
+        {/* Task detail drawer */}
+        {selectedTask && selectedProjectId && (
+          <TaskDetail
+            task={selectedTask}
+            allTasks={tasks}
+            projectId={selectedProjectId}
+            onClose={() => setSelectedTask(null)}
+            onRefresh={loadTasks}
+            onEdit={() => handleEditTask(selectedTask)}
+            onDeleted={handleTaskDeleted}
+          />
+        )}
+      </div>
+      {modals}
+    </>
   )
 }
 
@@ -174,20 +250,24 @@ interface MobileProps {
   onSelectProject: (id: string) => void
   onSelectTask: (task: Task) => void
   onCloseTask: () => void
+  onEditTask: (task: Task) => void
+  onDeletedTask: () => void
   onRefresh: () => void
   onNewProject: () => void
+  onNewTask: () => void
+  onSettings: (project: Project) => void
   onTabChange: (tab: AssigneeTab) => void
 }
 
 function MobileLayout({
   projects, tasks, allTasks, selectedProjectId, selectedTask,
   assigneeTab, onSelectProject, onSelectTask, onCloseTask,
-  onRefresh, onNewProject, onTabChange,
+  onEditTask, onDeletedTask, onRefresh, onNewProject, onNewTask, onSettings, onTabChange,
 }: MobileProps) {
   const selectedTaskId = selectedTask?.id
 
   // Full screen task detail
-  if (selectedTask) {
+  if (selectedTask && selectedProjectId) {
     return (
       <div className="h-screen flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
@@ -202,9 +282,11 @@ function MobileLayout({
           <TaskDetail
             task={selectedTask}
             allTasks={allTasks}
-            projectId={selectedProjectId ?? ''}
+            projectId={selectedProjectId}
             onClose={onCloseTask}
             onRefresh={onRefresh}
+            onEdit={() => onEditTask(selectedTask)}
+            onDeleted={onDeletedTask}
           />
         </div>
       </div>
@@ -216,17 +298,29 @@ function MobileLayout({
       {/* Project tabs */}
       <div className="flex overflow-x-auto border-b border-gray-100 bg-gray-50 px-2 pt-2 gap-1 flex-shrink-0">
         {projects.map(p => (
-          <button
-            key={p.id}
-            onClick={() => onSelectProject(p.id)}
-            className={`flex-shrink-0 px-3 py-1.5 text-sm rounded-t-md ${
-              selectedProjectId === p.id
-                ? 'bg-white text-gray-900 font-medium shadow-sm'
-                : 'text-gray-500'
-            }`}
-          >
-            {p.name}
-          </button>
+          <div key={p.id} className="flex-shrink-0 flex items-center gap-0.5">
+            <button
+              onClick={() => onSelectProject(p.id)}
+              className={`px-3 py-1.5 text-sm rounded-t-md ${
+                selectedProjectId === p.id
+                  ? 'bg-white text-gray-900 font-medium shadow-sm'
+                  : 'text-gray-500'
+              }`}
+            >
+              {p.name}
+            </button>
+            {selectedProjectId === p.id && (
+              <button
+                onClick={() => onSettings(p)}
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            )}
+          </div>
         ))}
         <button
           onClick={onNewProject}
@@ -236,8 +330,8 @@ function MobileLayout({
         </button>
       </div>
 
-      {/* Assignee tabs */}
-      <div className="flex border-b border-gray-100 flex-shrink-0">
+      {/* Assignee tabs + new task button */}
+      <div className="flex items-center border-b border-gray-100 flex-shrink-0">
         {(['human', 'ai'] as const).map(tab => (
           <button
             key={tab}
@@ -251,6 +345,14 @@ function MobileLayout({
             {tab === 'human' ? '人类' : 'AI'}
           </button>
         ))}
+        <button
+          onClick={onNewTask}
+          className="px-4 py-2 text-gray-400 hover:text-gray-700"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
       </div>
 
       {/* Timeline */}
