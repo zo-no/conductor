@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "bun run packages/core/src/server.ts",
-    "cli": "bun run packages/core/src/cli.ts"
+    "dev:web": "pnpm --filter @conductor/web dev",
+    "cli": "bun run packages/core/src/cli.ts",
+    "build": "bun build packages/core/cli.ts --compile --outfile conductor",
+    "install:cli": "bun run build && cp conductor ~/.bun/bin/conductor"
   },
   "devDependencies": {
     "typescript": "^5.4.0"
