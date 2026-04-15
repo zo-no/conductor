@@ -1,0 +1,134 @@
+# Conductor
+
+本地优先的任务调度系统，让人类和 AI 共用同一个 todo list。
+
+把一个长期目标（理财计划、产品开发、团队流程）交给 agent，它会把目标拆解成可执行的任务，注册定时调度，自动运行，并留下完整的执行记录。
+
+---
+
+## 快速安装
+
+把下面这段话复制给你的 agent（Claude Code 或 Codex CLI），让它帮你完成安装：
+
+```
+请帮我安装 Conductor。步骤如下：
+
+1. 确认已安装 bun（https://bun.sh）和 pnpm，如果没有先安装
+2. clone 仓库：git clone https://github.com/your-org/conductor ~/conductor
+3. 进入目录：cd ~/conductor
+4. 安装依赖：pnpm install
+5. 构建 CLI：bun build packages/core/cli.ts --compile --outfile conductor
+6. 安装到 PATH：cp conductor ~/.bun/bin/conductor
+7. 验证安装：conductor version
+8. 安装 Claude Code skills：bash skills/install.sh
+9. 启动后台服务：conductor daemon start
+10. 确认服务正常：conductor daemon status
+
+完成后告诉我 conductor version 的输出，以及 daemon 是否在运行。
+```
+
+---
+
+## 手动安装
+
+**前置要求：** [bun](https://bun.sh) + [pnpm](https://pnpm.io)
+
+```bash
+# 克隆仓库
+git clone https://github.com/your-org/conductor ~/conductor
+cd ~/conductor
+
+# 安装依赖
+pnpm install
+
+# 构建并安装 CLI
+bun build packages/core/cli.ts --compile --outfile conductor
+cp conductor ~/.bun/bin/conductor
+
+# 安装 Claude Code skills（可选，使用 /plan-project 等命令需要）
+bash skills/install.sh
+
+# 验证
+conductor version
+```
+
+---
+
+## 启动
+
+```bash
+# 启动后台调度器（负责定时任务的自动触发）
+conductor daemon start
+
+# 启动 Web UI（开发模式，需要 daemon 已运行）
+pnpm --filter @conductor/web dev
+# 打开 http://localhost:5173
+```
+
+---
+
+## 用 Agent 规划你的第一个项目
+
+安装完成后，在 Claude Code 里运行：
+
+```
+/plan-project
+```
+
+通过对话描述你的目标（理财计划、产品开发、学习计划……），agent 会帮你把目标拆解成 Conductor 任务，设置好定时调度，写入系统。
+
+---
+
+## 核心概念
+
+**Project** — 任务的上下文边界，一个目标对应一个项目
+
+**Task** — 唯一的执行单元，两个维度：
+- `assignee`：`human`（你来做）或 `ai`（自动执行）
+- `kind`：`once`（一次性）、`scheduled`（定时一次）、`recurring`（周期重复）
+
+**Executor** — AI 任务的执行方式：
+- `ai_prompt`：调用 Claude / Codex 执行指令
+- `script`：运行 shell 命令
+- `http`：调用 HTTP 接口
+
+---
+
+## CLI 速查
+
+```bash
+# 项目
+conductor project list
+conductor project create --name "理财计划" --goal "3个月存款增加20%"
+
+# 任务
+conductor task list --project <proj-id>
+conductor task create --title "每周收支复盘" --project <proj-id> \
+  --assignee ai --kind recurring --cron "0 21 * * 0" \
+  --executor-kind ai_prompt --prompt "今天是 {date}，请分析本周收支情况"
+
+# 执行
+conductor task run <task-id>
+conductor task done <task-id> --output "已确认"
+
+# 服务
+conductor daemon start
+conductor daemon status
+conductor daemon stop
+```
+
+---
+
+## 数据存储
+
+所有数据保存在本地 `~/.conductor/db.sqlite`，不依赖任何云服务。
+
+---
+
+## 文档
+
+- [架构概览](docs/architecture.md)
+- [执行模型](docs/execution-model.md)
+- [CLI & HTTP API 参考](docs/cli-api.md)
+- [Agent 接入指南](docs/integration.md)
+- [Web UI 设计](docs/ui-design.md)
