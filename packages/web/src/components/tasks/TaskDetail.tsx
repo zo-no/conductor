@@ -143,18 +143,18 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
         )}
 
         {tab === 'runs' && !selectedRun && (
-          <div className="p-4 space-y-2 overflow-y-auto">
-            {runs.length === 0 && <p className="text-sm text-gray-400">暂无执行记录</p>}
+          <div className="overflow-y-auto">
+            {runs.length === 0 && <p className="text-sm text-gray-400 px-4 py-4">暂无执行记录</p>}
             {runs.map(run => (
               <button
                 key={run.id}
                 onClick={() => setSelectedRun(run)}
-                className="w-full text-left border border-gray-100 rounded-lg p-3 hover:border-blue-200 hover:bg-blue-50/30 transition-colors"
+                className="w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {run.status === 'running' && (
-                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse flex-shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse flex-shrink-0" />
                     )}
                     <span className={`text-xs font-medium ${
                       run.status === 'done' ? 'text-green-600' :
@@ -165,21 +165,23 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
                        run.status === 'failed' ? '✗ 失败' :
                        run.status === 'running' ? '执行中' : '已取消'}
                     </span>
-                    <span className="text-xs text-gray-400">[{run.triggeredBy}]</span>
+                    <span className="text-xs text-gray-300">{run.triggeredBy}</span>
                   </div>
-                  <span className="text-xs text-gray-400">
-                    {new Date(run.startedAt).toLocaleString('zh-CN', {
-                      month: 'numeric', day: 'numeric',
-                      hour: '2-digit', minute: '2-digit',
-                    })}
-                  </span>
+                  <div className="text-right">
+                    <span className="text-xs text-gray-400">
+                      {new Date(run.startedAt).toLocaleString('zh-CN', {
+                        month: 'numeric', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </span>
+                    {run.completedAt && (
+                      <span className="text-xs text-gray-300 ml-1.5">
+                        {Math.round((new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()) / 1000)}s
+                      </span>
+                    )}
+                  </div>
                 </div>
-                {run.error && <p className="text-xs text-red-400 mt-1">{run.error}</p>}
-                {run.completedAt && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    耗时 {Math.round((new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()) / 1000)}s
-                  </p>
-                )}
+                {run.error && <p className="text-xs text-red-400 mt-0.5">{run.error}</p>}
               </button>
             ))}
           </div>
@@ -276,10 +278,10 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
         )}
 
         {tab === 'logs' && (
-          <div className="p-4 space-y-2">
-            {logs.length === 0 && <p className="text-sm text-gray-400">暂无执行日志</p>}
+          <div className="overflow-y-auto">
+            {logs.length === 0 && <p className="text-sm text-gray-400 px-4 py-4">暂无执行日志</p>}
             {logs.map(log => (
-              <div key={log.id} className="text-xs border border-gray-100 rounded-lg p-2.5 space-y-1">
+              <div key={log.id} className="text-xs px-4 py-3 border-b border-gray-50 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className={`font-medium ${
                     log.status === 'success' ? 'text-green-600' :
@@ -312,10 +314,10 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
         )}
 
         {tab === 'ops' && (
-          <div className="p-4 space-y-1">
-            {ops.length === 0 && <p className="text-sm text-gray-400">暂无操作记录</p>}
+          <div className="overflow-y-auto">
+            {ops.length === 0 && <p className="text-sm text-gray-400 px-4 py-4">暂无操作记录</p>}
             {ops.map(op => (
-              <div key={op.id} className="flex items-start gap-2 text-xs py-1.5 border-b border-gray-50">
+              <div key={op.id} className="flex items-start gap-2 text-xs px-4 py-2.5 border-b border-gray-50">
                 <span className="text-gray-400 flex-shrink-0 w-28">
                   {new Date(op.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </span>
