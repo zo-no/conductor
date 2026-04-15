@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Project } from '@conductor/types'
 import { api } from '../../lib/api'
+import { ConfirmDialog } from '../ui/Dialog'
 
 interface Props {
   project: Project
@@ -19,6 +20,7 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
   const [workDir, setWorkDir] = useState(project.workDir ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   // Prompt
   const [promptContent, setPromptContent] = useState('')
@@ -82,13 +84,27 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
     onDone()
   }
 
-  async function handleDelete() {
-    if (!confirm(`确定删除项目「${project.name}」？此操作不可撤销，项目下所有任务也会被删除。`)) return
+  function handleDelete() {
+    setConfirmDelete(true)
+  }
+
+  async function handleDeleteConfirmed() {
+    setConfirmDelete(false)
     await api.projects.delete(project.id)
     onDelete()
   }
 
   return (
+    <>
+    {confirmDelete && (
+      <ConfirmDialog
+        message={`确定删除项目「${project.name}」？此操作不可撤销，项目下所有任务也会被删除。`}
+        confirmLabel="删除"
+        danger
+        onConfirm={handleDeleteConfirmed}
+        onCancel={() => setConfirmDelete(false)}
+      />
+    )}
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[85vh]">
         {/* Header */}
@@ -229,5 +245,6 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
         </div>
       </div>
     </div>
+    </>
   )
 }

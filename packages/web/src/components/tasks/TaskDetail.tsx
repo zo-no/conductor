@@ -3,6 +3,7 @@ import type { Task, TaskOp } from '@conductor/types'
 import type { TaskRun } from '../../lib/api'
 import { api } from '../../lib/api'
 import { RunViewer } from './RunViewer'
+import { ConfirmDialog } from '../ui/Dialog'
 
 interface Props {
   task: Task
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEdit, onDeleted }: Props) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [ops, setOps] = useState<TaskOp[]>([])
   const [runs, setRuns] = useState<TaskRun[]>([])
   const [selectedRun, setSelectedRun] = useState<TaskRun | null>(null)
@@ -56,12 +58,26 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
   }
 
   async function handleDelete() {
-    if (!confirm(`确定删除任务「${task.title}」？`)) return
+    setConfirmDelete(true)
+  }
+
+  async function handleDeleteConfirmed() {
+    setConfirmDelete(false)
     await api.tasks.delete(task.id)
     onDeleted()
   }
 
   return (
+    <>
+    {confirmDelete && (
+      <ConfirmDialog
+        message={`确定删除任务「${task.title}」？`}
+        confirmLabel="删除"
+        danger
+        onConfirm={handleDeleteConfirmed}
+        onCancel={() => setConfirmDelete(false)}
+      />
+    )}
     <aside className="w-80 flex-shrink-0 border-l border-gray-100 flex flex-col h-full bg-white">
       {/* Header */}
       <div className="flex items-start justify-between px-4 py-3 border-b border-gray-100">
@@ -313,6 +329,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
         </div>
       </div>
     </aside>
+    </>
   )
 }
 

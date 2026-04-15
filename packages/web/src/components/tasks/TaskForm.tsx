@@ -34,7 +34,6 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
   const [httpBody, setHttpBody] = useState(task?.executor?.kind === 'http' ? (task.executor.body ?? '') : '')
 
   // Executor options
-  const [includeLastOutput, setIncludeLastOutput] = useState(task?.executorOptions?.includeLastOutput ?? false)
   const [reviewOnComplete, setReviewOnComplete] = useState(task?.executorOptions?.reviewOnComplete ?? false)
 
   // Schedule
@@ -87,7 +86,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     try {
       const executor = buildExecutor()
       const scheduleConfig = buildScheduleConfig()
-      const executorOptions = executor ? { includeLastOutput, reviewOnComplete } : undefined
+      const executorOptions = executor ? { reviewOnComplete } : undefined
 
       if (isEdit) {
         await api.tasks.update(task!.id, {
@@ -325,15 +324,6 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
 
                 {executorKind !== 'none' && (
                   <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={includeLastOutput}
-                        onChange={e => setIncludeLastOutput(e.target.checked)}
-                        className="rounded"
-                      />
-                      <span className="text-xs text-gray-600">注入上次执行结果 <code className="text-gray-400">{'{lastOutput}'}</code></span>
-                    </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"

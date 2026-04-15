@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Project, Task } from '@conductor/types'
 import { api } from './lib/api'
 import { useSSE } from './hooks/useSSE'
+import { useWindowWidth } from './hooks/useWindowWidth'
 import { Sidebar } from './components/layout/Sidebar'
 import { Timeline } from './components/tasks/Timeline'
 import { TaskDetail } from './components/tasks/TaskDetail'
 import { TaskForm } from './components/tasks/TaskForm'
 import { ProjectSettings } from './components/projects/ProjectSettings'
+import { PromptDialog } from './components/ui/Dialog'
 
 type AssigneeTab = 'human' | 'ai'
 
@@ -17,11 +19,17 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [assigneeTab, setAssigneeTab] = useState<AssigneeTab>('human')
   const [loading, setLoading] = useState(true)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   // Modals
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [settingsProject, setSettingsProject] = useState<Project | null>(null)
+  const [newProjectPrompt, setNewProjectPrompt] = useState(false)
+
+  // Responsive — reactive to window resize
+  const windowWidth = useWindowWidth()
+  const isMobile = windowWidth < 768
 
   // Load projects
   const loadProjects = useCallback(() => {
@@ -65,10 +73,13 @@ export default function App() {
     setSelectedTask(null)
   }
 
-  async function handleNewProject() {
-    const name = prompt('项目名称')
-    if (!name?.trim()) return
-    const project = await api.projects.create({ name: name.trim() })
+  function handleNewProject() {
+    setNewProjectPrompt(true)
+  }
+
+  async function handleNewProjectConfirm(name: string) {
+    setNewProjectPrompt(false)
+    const project = await api.projects.create({ name })
     await loadProjects()
     setSelectedProjectId(project.id)
   }
@@ -97,7 +108,6 @@ export default function App() {
   function handleProjectSettingsDone(updated?: Project) {
     setSettingsProject(null)
     loadProjects().then(ps => {
-      // If selected project was deleted, select first available
       if (selectedProjectId && !ps.find(p => p.id === selectedProjectId)) {
         setSelectedProjectId(ps.length > 0 ? ps[0].id : null)
         setSelectedTask(null)
@@ -116,9 +126,6 @@ export default function App() {
 
   const projectTasks = tasks
 
-  // Mobile: detect screen size
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center text-gray-400 text-sm">
@@ -129,6 +136,15 @@ export default function App() {
 
   const modals = (
     <>
+      {newProjectPrompt && (
+        <PromptDialog
+          title="新建项目"
+          placeholder="项目名称"
+          confirmLabel="创建"
+          onConfirm={handleNewProjectConfirm}
+          onCancel={() => setNewProjectPrompt(false)}
+        />
+      )}
       {showTaskForm && selectedProjectId && (
         <TaskForm
           projectId={selectedProjectId}
@@ -176,27 +192,29 @@ export default function App() {
   return (
     <>
       <div className="h-screen flex bg-white overflow-hidden">
-        {/* Sidebar */}
+        {/* Sidebar — collapsible */}
         <Sidebar
           projects={projects}
           selectedProjectId={selectedProjectId}
           tasks={tasks}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(v => !v)}
           onSelect={handleSelectProject}
           onNewProject={handleNewProject}
           onSettings={setSettingsProject}
         />
 
         {/* Main timeline */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto min-w-0">
           {selectedProjectId ? (
             <>
               <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between z-10">
-                <h2 className="text-sm font-semibold text-gray-800">
+                <h2 className="text-sm font-semibold text-gray-800 truncate">
                   {projects.find(p => p.id === selectedProjectId)?.name ?? ''}
                 </h2>
                 <button
                   onClick={handleNewTask}
-                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors flex-shrink-0 ml-4"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -270,8 +288,8 @@ function MobileLayout({
   if (selectedTask && selectedProjectId) {
     return (
       <div className="h-screen flex flex-col">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
-          <button onClick={onCloseTask} className="text-gray-400 hover:text-gray-600">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 flex-shrink-0">
+          <button onClick={onCloseTask} className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-600 -ml-2">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
@@ -294,14 +312,14 @@ function MobileLayout({
   }
 
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-[100dvh] flex flex-col bg-white">
       {/* Project tabs */}
-      <div className="flex overflow-x-auto border-b border-gray-100 bg-gray-50 px-2 pt-2 gap-1 flex-shrink-0">
+      <div className="flex overflow-x-auto border-b border-gray-100 bg-gray-50 px-2 pt-2 gap-1 flex-shrink-0 scrollbar-none">
         {projects.map(p => (
           <div key={p.id} className="flex-shrink-0 flex items-center gap-0.5">
             <button
               onClick={() => onSelectProject(p.id)}
-              className={`px-3 py-1.5 text-sm rounded-t-md ${
+              className={`px-3 py-1.5 text-sm rounded-t-md whitespace-nowrap ${
                 selectedProjectId === p.id
                   ? 'bg-white text-gray-900 font-medium shadow-sm'
                   : 'text-gray-500'
@@ -311,8 +329,8 @@ function MobileLayout({
             </button>
             {selectedProjectId === p.id && (
               <button
-                onClick={() => onSettings(p)}
-                className="p-1 text-gray-400 hover:text-gray-600"
+                onClick={() => { const proj = projects.find(pr => pr.id === p.id); if (proj) onSettings(proj) }}
+                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -324,19 +342,21 @@ function MobileLayout({
         ))}
         <button
           onClick={onNewProject}
-          className="flex-shrink-0 px-3 py-1.5 text-sm text-gray-400"
+          className="flex-shrink-0 w-9 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700"
         >
-          +
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
         </button>
       </div>
 
-      {/* Assignee tabs + new task button */}
+      {/* Assignee tabs */}
       <div className="flex items-center border-b border-gray-100 flex-shrink-0">
         {(['human', 'ai'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => onTabChange(tab)}
-            className={`flex-1 py-2 text-sm font-medium ${
+            className={`flex-1 py-2.5 text-sm font-medium ${
               assigneeTab === tab
                 ? 'text-blue-600 border-b-2 border-blue-600'
                 : 'text-gray-400'
@@ -345,18 +365,10 @@ function MobileLayout({
             {tab === 'human' ? '人类' : 'AI'}
           </button>
         ))}
-        <button
-          onClick={onNewTask}
-          className="px-4 py-2 text-gray-400 hover:text-gray-700"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
       </div>
 
-      {/* Timeline */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      {/* Timeline + FAB */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 pb-20">
         <Timeline
           tasks={tasks}
           assigneeFilter={assigneeTab}
@@ -365,6 +377,17 @@ function MobileLayout({
           selectedTaskId={selectedTaskId}
         />
       </div>
+
+      {/* Floating action button */}
+      <button
+        onClick={onNewTask}
+        className="absolute bottom-6 right-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all"
+        style={{ position: 'fixed' }}
+      >
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
     </div>
   )
 }
