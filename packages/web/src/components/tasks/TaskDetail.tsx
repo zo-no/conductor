@@ -80,7 +80,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
         onCancel={() => setConfirmDelete(false)}
       />
     )}
-    <aside className="w-80 flex-shrink-0 border-l border-gray-100 flex flex-col h-full bg-white">
+    <aside className="w-full flex-shrink-0 flex flex-col h-full bg-transparent">
       {/* Header */}
       <div className="flex items-start justify-between px-4 py-3 border-b border-gray-100">
         <div className="flex-1 min-w-0">

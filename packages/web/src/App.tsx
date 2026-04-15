@@ -222,7 +222,7 @@ export default function App() {
 
   return (
     <>
-      <div className="h-screen flex bg-white overflow-hidden">
+      <div className="h-screen flex bg-white overflow-hidden relative">
         {/* Sidebar — collapsible */}
         <Sidebar
           projects={projects}
@@ -305,17 +305,27 @@ export default function App() {
           )}
         </main>
 
-        {/* Task detail drawer */}
+        {/* Task detail — floating card from right with blurred backdrop */}
         {selectedTask && selectedProjectId && (
-          <TaskDetail
-            task={selectedTask}
-            allTasks={tasks}
-            projectId={selectedProjectId}
-            onClose={() => setSelectedTask(null)}
-            onRefresh={loadTasks}
-            onEdit={() => handleEditTask(selectedTask)}
-            onDeleted={handleTaskDeleted}
-          />
+          <>
+            <div
+              className="absolute inset-0 backdrop-blur-[2px] bg-black/10 z-10"
+              onClick={() => setSelectedTask(null)}
+            />
+            <div className="absolute top-0 right-0 h-full z-20 p-3">
+              <div className="h-full w-80 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl overflow-hidden flex flex-col">
+                <TaskDetail
+                  task={selectedTask}
+                  allTasks={tasks}
+                  projectId={selectedProjectId}
+                  onClose={() => setSelectedTask(null)}
+                  onRefresh={loadTasks}
+                  onEdit={() => handleEditTask(selectedTask)}
+                  onDeleted={handleTaskDeleted}
+                />
+              </div>
+            </div>
+          </>
         )}
       </div>
       {modals}
@@ -349,87 +359,84 @@ function MobileLayout({
   assigneeTab, onSelectProject, onSelectTask, onCloseTask,
   onEditTask, onDeletedTask, onRefresh, onNewProject, onNewTask, onSettings, onTabChange,
 }: MobileProps) {
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const selectedTaskId = selectedTask?.id
-
-  // Swipe left/right to switch projects
+  const currentProject = projects.find(p => p.id === selectedProjectId)
   const activeProjects = projects.filter(p => !p.archived)
-  const currentIdx = activeProjects.findIndex(p => p.id === selectedProjectId)
+  const archivedProjects = projects.filter(p => p.archived)
 
+  // Swipe right from left edge to open drawer, swipe left to close
   const swipe = useSwipe(
-    () => {
-      // swipe left → next project
-      if (currentIdx < activeProjects.length - 1) onSelectProject(activeProjects[currentIdx + 1].id)
-    },
-    () => {
-      // swipe right → prev project
-      if (currentIdx > 0) onSelectProject(activeProjects[currentIdx - 1].id)
-    }
+    () => setDrawerOpen(false),   // swipe left → close drawer
+    () => setDrawerOpen(true),    // swipe right → open drawer
   )
 
-  // Full screen task detail
+  // Task detail — right-side floating card with blurred backdrop
   if (selectedTask && selectedProjectId) {
     return (
-      <div className="h-screen flex flex-col">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 flex-shrink-0">
-          <button onClick={onCloseTask} className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-600 -ml-2">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <span className="text-sm font-medium text-gray-800">返回</span>
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <TaskDetail
-            task={selectedTask}
-            allTasks={allTasks}
-            projectId={selectedProjectId}
-            onClose={onCloseTask}
-            onRefresh={onRefresh}
-            onEdit={() => onEditTask(selectedTask)}
-            onDeleted={onDeletedTask}
-          />
+      <div className="h-[100dvh] flex flex-col bg-white relative overflow-hidden">
+        {/* Keep the main content visible but blurred behind */}
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 z-30" onClick={onCloseTask} />
+        {/* Floating card from right */}
+        <div className="fixed top-0 right-0 h-full z-40 flex flex-col" style={{ width: '92%', maxWidth: '400px' }}>
+          <div className="flex flex-col h-full bg-white/95 backdrop-blur-md shadow-2xl rounded-l-2xl overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100/80 flex-shrink-0">
+              <button onClick={onCloseTask} className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-600 -ml-2">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <span className="text-sm font-medium text-gray-800">返回</span>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <TaskDetail
+                task={selectedTask}
+                allTasks={allTasks}
+                projectId={selectedProjectId}
+                onClose={onCloseTask}
+                onRefresh={onRefresh}
+                onEdit={() => onEditTask(selectedTask)}
+                onDeleted={onDeletedTask}
+              />
+            </div>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-white">
-      {/* Project tabs */}
-      <div className="flex overflow-x-auto border-b border-gray-100 bg-gray-50 px-2 pt-2 gap-1 flex-shrink-0 scrollbar-none">
-        {projects.map(p => (
-          <div key={p.id} className="flex-shrink-0 flex items-center gap-0.5">
-            <button
-              onClick={() => onSelectProject(p.id)}
-              className={`px-3 py-1.5 text-sm rounded-t-md whitespace-nowrap ${
-                selectedProjectId === p.id
-                  ? 'bg-white text-gray-900 font-medium shadow-sm'
-                  : 'text-gray-500'
-              }`}
-            >
-              {p.name}
-            </button>
-            {selectedProjectId === p.id && (
-              <button
-                onClick={() => { const proj = projects.find(pr => pr.id === p.id); if (proj) onSettings(proj) }}
-                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </button>
-            )}
-          </div>
-        ))}
+    <div className="h-[100dvh] flex flex-col bg-white relative overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
         <button
-          onClick={onNewProject}
-          className="flex-shrink-0 w-9 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700"
+          onClick={() => setDrawerOpen(true)}
+          className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-gray-800 -ml-2"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
+
+        <div className="flex items-center gap-2 min-w-0">
+          <h1 className="text-sm font-semibold text-gray-900 truncate">
+            {currentProject?.name ?? 'Conductor'}
+          </h1>
+          {currentProject && (
+            <button
+              onClick={() => onSettings(currentProject)}
+              className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 flex-shrink-0"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* placeholder to center project name */}
+        <div className="w-9" />
       </div>
 
       {/* Assignee tabs */}
@@ -449,7 +456,7 @@ function MobileLayout({
         ))}
       </div>
 
-      {/* Timeline + FAB — swipe to switch project */}
+      {/* Timeline */}
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-20" {...swipe}>
         <Timeline
           tasks={tasks}
@@ -460,16 +467,99 @@ function MobileLayout({
         />
       </div>
 
-      {/* Floating action button */}
+      {/* FAB */}
       <button
         onClick={onNewTask}
-        className="absolute bottom-6 right-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all"
-        style={{ position: 'fixed' }}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all z-20"
       >
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
         </svg>
       </button>
+
+      {/* Left drawer backdrop — blur */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 z-30 backdrop-blur-sm bg-black/20"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
+      {/* Left drawer — floating card */}
+      <div className={[
+        'fixed top-0 left-0 h-full z-40 flex flex-col transition-transform duration-200',
+        drawerOpen ? 'translate-x-0' : '-translate-x-full',
+      ].join(' ')} style={{ width: '72%', maxWidth: '280px' }}>
+        {/* Drawer inner card */}
+        <div className="flex flex-col h-full bg-white/95 backdrop-blur-md shadow-2xl rounded-r-2xl overflow-hidden">
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100/80">
+          <h2 className="text-sm font-semibold text-gray-800">Conductor</h2>
+          <button
+            onClick={() => setDrawerOpen(false)}
+            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-md"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Project list */}
+        <nav className="flex-1 overflow-y-auto py-2">
+          <div className="px-4 mb-1">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">我的项目</span>
+          </div>
+          {activeProjects.map(p => (
+            <button
+              key={p.id}
+              onClick={() => { onSelectProject(p.id); setDrawerOpen(false) }}
+              className={[
+                'w-full flex items-center px-4 py-2.5 text-sm text-left transition-colors',
+                selectedProjectId === p.id
+                  ? 'bg-blue-50 text-blue-700 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50',
+              ].join(' ')}
+            >
+              <span className="flex-1 truncate">{p.name}</span>
+              {selectedProjectId === p.id && (
+                <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </button>
+          ))}
+
+          {archivedProjects.length > 0 && (
+            <div className="mt-3 px-4">
+              <span className="text-xs text-gray-300">已归档</span>
+              {archivedProjects.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => { onSelectProject(p.id); setDrawerOpen(false) }}
+                  className="w-full flex items-center px-0 py-2 text-sm text-left text-gray-400 hover:text-gray-600"
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </nav>
+
+        {/* New project */}
+        <div className="p-4 border-t border-gray-100">
+          <button
+            onClick={() => { onNewProject(); setDrawerOpen(false) }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-gray-800 hover:bg-gray-50 rounded-md"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            新建项目
+          </button>
+        </div>
+        </div>{/* end inner card */}
+      </div>
     </div>
   )
 }
