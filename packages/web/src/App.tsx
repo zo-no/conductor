@@ -71,7 +71,9 @@ export default function App() {
     loadTasks()
   }, [loadTasks])
 
-  useSSE(selectedProjectId, handleSSE)
+  // Global view: subscribe to all events (no projectId filter)
+  const sseProjectId = selectedProjectId === ALL_PROJECTS_ID ? '__all__' : selectedProjectId
+  useSSE(sseProjectId, handleSSE)
 
   // Keep selectedTask in sync with latest task data; also restore from URL on first load
   useEffect(() => {
@@ -532,9 +534,6 @@ function MobileLayout({
 
         {/* Project list */}
         <nav className="flex-1 overflow-y-auto py-2">
-          <div className="px-4 mb-1">
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">我的项目</span>
-          </div>
           {activeProjects.map(p => (
             <button
               key={p.id}

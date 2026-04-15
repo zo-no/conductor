@@ -107,11 +107,7 @@ export function Sidebar({
           </div>
         )}
 
-        {!collapsed && (
-          <div className="px-3 mt-2 mb-1">
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">我的项目</span>
-          </div>
-        )}
+        {!collapsed && <div className="mt-1" />}
 
         {active.map(project => {
           const pending = pendingByProject.get(project.id) ?? 0

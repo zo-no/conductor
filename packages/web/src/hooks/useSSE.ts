@@ -4,11 +4,14 @@ export type SSEEvent =
   | { type: 'task_updated' | 'task_created' | 'task_deleted' | 'connected'; data?: { taskId: string; projectId: string } }
   | { type: 'run_line'; data: { taskId: string; runId: string; line: string; ts: string } }
 
+// Pass null to disable, pass '__all__' to subscribe to all projects (no filter)
 export function useSSE(projectId: string | null, onEvent: (e: SSEEvent) => void) {
   useEffect(() => {
     if (!projectId) return
 
-    const url = `/api/events?projectId=${projectId}`
+    const url = projectId === '__all__'
+      ? '/api/events'
+      : `/api/events?projectId=${projectId}`
     const es = new EventSource(url)
 
     es.onmessage = (e) => {

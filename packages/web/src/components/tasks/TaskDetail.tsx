@@ -21,15 +21,15 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
   const [logs, setLogs] = useState<TaskLog[]>([])
   const [runs, setRuns] = useState<TaskRun[]>([])
   const [selectedRun, setSelectedRun] = useState<TaskRun | null>(null)
-  const [tab, setTab] = useState<'info' | 'runs' | 'logs' | 'ops'>(() =>
-    task.assignee === 'ai' && task.status === 'running' ? 'runs' : 'info'
+  const [tab, setTab] = useState<'info' | 'history' | 'ops'>(() =>
+    task.assignee === 'ai' && task.status === 'running' ? 'history' : 'info'
   )
   const [toast, setToast] = useState<string | null>(null)
 
-  // Auto-switch to runs tab when task starts running
+  // Auto-switch to history tab when task starts running
   useEffect(() => {
     if (task.assignee === 'ai' && task.status === 'running') {
-      setTab('runs')
+      setTab('history')
     }
   }, [task.status, task.assignee])
 
@@ -367,78 +367,80 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
         )}
       </div>
 
-      {/* Actions — compact icon row */}
-      <div className="px-3 py-2.5 border-t border-gray-100 flex items-center justify-between">
-        {/* Left: primary action */}
-        <div className="flex items-center gap-1.5">
-          {/* Human pending: check icon */}
-          {task.assignee === 'human' && task.status === 'pending' && (
-            <button
-              onClick={handleDone}
-              title="标记完成"
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 active:scale-95 transition-all"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </button>
-          )}
-
-          {/* AI: play or running pulse */}
-          {task.assignee === 'ai' && task.status === 'running' && (
-            <span className="relative flex h-8 w-8 items-center justify-center">
-              <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-green-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
-            </span>
-          )}
-          {task.assignee === 'ai' && (task.status === 'pending' || task.status === 'failed' || task.status === 'cancelled') && (
-            <button
-              onClick={handleRun}
-              title={task.status === 'failed' ? '重试' : '立即触发'}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600 active:scale-95 transition-all"
-            >
-              <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </button>
-          )}
-
-          {/* AI schedule toggle */}
+      {/* Actions */}
+      <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-3">
+        {/* Left: secondary — schedule toggle + delete */}
+        <div className="flex items-center gap-3">
+          {/* Schedule toggle — only for AI tasks that aren't terminal */}
           {task.assignee === 'ai' && task.status !== 'done' && task.status !== 'cancelled' && (
             <button
               onClick={handleToggleEnabled}
+              className="flex items-center gap-1.5 group"
               title={task.enabled ? '暂停调度' : '恢复调度'}
-              className={[
-                'w-8 h-8 flex items-center justify-center rounded-full transition-colors',
-                task.enabled
-                  ? 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                  : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100',
-              ].join(' ')}
             >
-              {task.enabled ? (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              )}
+              <div className={[
+                'relative w-8 h-4 rounded-full transition-colors duration-200',
+                task.enabled ? 'bg-blue-500' : 'bg-gray-200',
+              ].join(' ')}>
+                <span className={[
+                  'absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200',
+                  task.enabled ? 'translate-x-4' : 'translate-x-0.5',
+                ].join(' ')} />
+              </div>
+            </button>
+          )}
+
+          {/* Delete — low-key */}
+          <button
+            onClick={handleDelete}
+            title="删除"
+            className="text-gray-300 hover:text-red-400 transition-colors p-1"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Right: primary action */}
+        <div className="flex items-center">
+          {/* Human pending: done */}
+          {task.assignee === 'human' && task.status === 'pending' && (
+            <button
+              onClick={handleDone}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-xs font-medium rounded-lg hover:bg-green-600 active:scale-95 transition-all"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              完成
+            </button>
+          )}
+
+          {/* AI running: pulse indicator */}
+          {task.assignee === 'ai' && task.status === 'running' && (
+            <span className="flex items-center gap-2 text-xs text-green-600">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              执行中
+            </span>
+          )}
+
+          {/* AI triggerable: run */}
+          {task.assignee === 'ai' && (task.status === 'pending' || task.status === 'failed' || task.status === 'cancelled') && (
+            <button
+              onClick={handleRun}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 active:scale-95 transition-all"
+            >
+              <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              {task.status === 'failed' ? '重试' : '执行'}
             </button>
           )}
         </div>
-
-        {/* Right: delete */}
-        <button
-          onClick={handleDelete}
-          title="删除"
-          className="w-8 h-8 flex items-center justify-center rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
       </div>
     </aside>
     </>

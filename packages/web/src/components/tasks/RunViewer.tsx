@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TaskRun, SpoolLine } from '../../lib/api'
 import { api } from '../../lib/api'
 import { useSSE } from '../../hooks/useSSE'
@@ -122,9 +122,10 @@ function BlockView({ block }: { block: Block }) {
   }
 }
 
-export function RunViewer({ taskId, run, projectId, onBack }: Props) {
+export function RunViewer({ taskId, run: initialRun, projectId, onBack }: Props) {
   const [lines, setLines] = useState<SpoolLine[]>([])
   const [loading, setLoading] = useState(true)
+  const [run, setRun] = useState<TaskRun>(initialRun)
   const bottomRef = useRef<HTMLDivElement>(null)
   const isRunning = run.status === 'running'
 
@@ -135,8 +136,8 @@ export function RunViewer({ taskId, run, projectId, onBack }: Props) {
       .finally(() => setLoading(false))
   }, [taskId, run.id])
 
-  // Stream new lines via SSE if run is still running
-  const handleSSE = (e: any) => {
+  // Stream new lines + detect run completion via SSE
+  const handleSSE = useCallback((e: any) => {
     if (e.type === 'run_line' && e.data.runId === run.id) {
       setLines(prev => [...prev, {
         id: Date.now(),
@@ -145,7 +146,15 @@ export function RunViewer({ taskId, run, projectId, onBack }: Props) {
         line: e.data.line,
       }])
     }
-  }
+    // When the task updates, re-fetch run status to detect completion
+    if (e.type === 'task_updated' && e.data?.taskId === taskId) {
+      api.tasks.runs(taskId).then(runs => {
+        const fresh = runs.find(r => r.id === run.id)
+        if (fresh) setRun(fresh)
+      }).catch(() => {})
+    }
+  }, [run.id, taskId])
+
   useSSE(isRunning ? projectId : null, handleSSE)
 
   // Auto-scroll to bottom when new lines arrive
@@ -153,13 +162,24 @@ export function RunViewer({ taskId, run, projectId, onBack }: Props) {
     if (isRunning) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [lines.length, isRunning])
 
+  // Live elapsed timer while running
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    if (!isRunning) return
+    const start = new Date(run.startedAt).getTime()
+    const tick = () => setElapsed(Math.round((Date.now() - start) / 1000))
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [isRunning, run.startedAt])
+
   const blocks = lines
     .map(l => parseLine(l.line))
     .filter((b): b is Block => b !== null)
 
   const duration = run.completedAt
     ? `${Math.round((new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()) / 1000)}s`
-    : '运行中...'
+    : isRunning ? `${elapsed}s` : '运行中...'
 
   return (
     <div className="flex flex-col h-full">
