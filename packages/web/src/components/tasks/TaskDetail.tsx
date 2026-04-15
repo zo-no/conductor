@@ -146,8 +146,8 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
       {/* Tabs */}
       <div className="flex border-b border-gray-100">
         {(task.assignee === 'ai'
-          ? ['info', 'runs', 'logs', 'ops'] as const
-          : ['info', 'logs', 'ops'] as const
+          ? ['info', 'history', 'ops'] as const
+          : ['info', 'ops'] as const
         ).map(t => (
           <button
             key={t}
@@ -156,14 +156,14 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
               tab === t ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600'
             }`}
           >
-            {{ info: '详情', runs: '执行', logs: '日志', ops: '记录' }[t]}
+            {{ info: '详情', history: '历史', ops: '日志' }[t]}
           </button>
         ))}
       </div>
 
       <div className="flex-1 overflow-y-auto flex flex-col">
         {/* RunViewer overlay */}
-        {tab === 'runs' && selectedRun && (
+        {tab === 'history' && selectedRun && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <RunViewer
               taskId={task.id}
@@ -174,48 +174,105 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
           </div>
         )}
 
-        {tab === 'runs' && !selectedRun && (
+        {tab === 'history' && !selectedRun && (
           <div className="overflow-y-auto">
-            {runs.length === 0 && <p className="text-sm text-gray-400 px-4 py-4">暂无执行记录</p>}
-            {runs.map(run => (
-              <button
-                key={run.id}
-                onClick={() => setSelectedRun(run)}
-                className="w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {run.status === 'running' && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse flex-shrink-0" />
-                    )}
-                    <span className={`text-xs font-medium ${
-                      run.status === 'done' ? 'text-green-600' :
-                      run.status === 'failed' ? 'text-red-500' :
-                      run.status === 'running' ? 'text-blue-600' : 'text-gray-400'
-                    }`}>
-                      {run.status === 'done' ? '✓ 完成' :
-                       run.status === 'failed' ? '✗ 失败' :
-                       run.status === 'running' ? '执行中' : '已取消'}
-                    </span>
-                    <span className="text-xs text-gray-300">{run.triggeredBy}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs text-gray-400">
-                      {new Date(run.startedAt).toLocaleString('zh-CN', {
-                        month: 'numeric', day: 'numeric',
-                        hour: '2-digit', minute: '2-digit',
-                      })}
-                    </span>
-                    {run.completedAt && (
-                      <span className="text-xs text-gray-300 ml-1.5">
-                        {Math.round((new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()) / 1000)}s
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {run.error && <p className="text-xs text-red-400 mt-0.5">{run.error}</p>}
-              </button>
-            ))}
+            {runs.length === 0 && logs.length === 0 && (
+              <p className="text-sm text-gray-400 px-4 py-4">暂无执行记录</p>
+            )}
+            {/* Merge runs and logs by startedAt, runs take precedence */}
+            {(() => {
+              // Build a unified list: prefer run entries, supplement with log-only entries (skipped)
+              const runIds = new Set(runs.map(r => r.startedAt))
+              const logOnlyEntries = logs.filter(l => !runIds.has(l.startedAt))
+
+              type Entry =
+                | { kind: 'run'; run: typeof runs[0]; log: typeof logs[0] | undefined }
+                | { kind: 'log'; log: typeof logs[0] }
+
+              const entries: Entry[] = [
+                ...runs.map(run => ({
+                  kind: 'run' as const,
+                  run,
+                  log: logs.find(l => l.startedAt === run.startedAt),
+                })),
+                ...logOnlyEntries.map(log => ({ kind: 'log' as const, log })),
+              ].sort((a, b) => {
+                const aTime = a.kind === 'run' ? a.run.startedAt : a.log.startedAt
+                const bTime = b.kind === 'run' ? b.run.startedAt : b.log.startedAt
+                return new Date(bTime).getTime() - new Date(aTime).getTime()
+              })
+
+              return entries.map((entry) => {
+                if (entry.kind === 'run') {
+                  const { run, log } = entry
+                  return (
+                    <div key={run.id} className="border-b border-gray-50">
+                      <button
+                        onClick={() => setSelectedRun(run)}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {run.status === 'running' && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse flex-shrink-0" />
+                            )}
+                            <span className={`text-xs font-medium ${
+                              run.status === 'done' ? 'text-green-600' :
+                              run.status === 'failed' ? 'text-red-500' :
+                              run.status === 'running' ? 'text-blue-600' : 'text-gray-400'
+                            }`}>
+                              {run.status === 'done' ? '✓ 成功' :
+                               run.status === 'failed' ? '✗ 失败' :
+                               run.status === 'running' ? '执行中' : '已取消'}
+                            </span>
+                            <span className="text-xs text-gray-300">{run.triggeredBy}</span>
+                          </div>
+                          <div className="text-right flex items-center gap-1.5">
+                            <span className="text-xs text-gray-400">
+                              {new Date(run.startedAt).toLocaleString('zh-CN', {
+                                month: 'numeric', day: 'numeric',
+                                hour: '2-digit', minute: '2-digit',
+                              })}
+                            </span>
+                            {run.completedAt && (
+                              <span className="text-xs text-gray-300">
+                                {Math.round((new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()) / 1000)}s
+                              </span>
+                            )}
+                            <svg className="w-3 h-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </div>
+                        {run.error && <p className="text-xs text-red-400 mt-0.5">{run.error}</p>}
+                      </button>
+                      {log?.output && (
+                        <pre className="mx-4 mb-3 text-xs text-gray-500 bg-gray-50 rounded p-2 overflow-x-auto max-h-24 whitespace-pre-wrap">
+                          {log.output.slice(0, 400)}{log.output.length > 400 ? '…' : ''}
+                        </pre>
+                      )}
+                    </div>
+                  )
+                } else {
+                  // log-only (skipped)
+                  const { log } = entry
+                  return (
+                    <div key={log.id} className="px-4 py-3 border-b border-gray-50 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-orange-400 font-medium">跳过</span>
+                        <span className="text-gray-400">
+                          {new Date(log.startedAt).toLocaleString('zh-CN', {
+                            month: 'numeric', day: 'numeric',
+                            hour: '2-digit', minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      {log.skipReason && <p className="text-gray-400 mt-0.5">{log.skipReason}</p>}
+                    </div>
+                  )
+                }
+              })
+            })()}
           </div>
         )}
 
@@ -306,42 +363,6 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
                 <p className="mt-1 text-sm text-gray-700 bg-gray-50 rounded p-2 whitespace-pre-wrap">{task.completionOutput}</p>
               </div>
             )}
-          </div>
-        )}
-
-        {tab === 'logs' && (
-          <div className="overflow-y-auto">
-            {logs.length === 0 && <p className="text-sm text-gray-400 px-4 py-4">暂无执行日志</p>}
-            {logs.map(log => (
-              <div key={log.id} className="text-xs px-4 py-3 border-b border-gray-50 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className={`font-medium ${
-                    log.status === 'success' ? 'text-green-600' :
-                    log.status === 'failed' ? 'text-red-500' :
-                    log.status === 'skipped' ? 'text-orange-400' : 'text-gray-400'
-                  }`}>
-                    {log.status === 'success' ? '✓ 成功' :
-                     log.status === 'failed' ? '✗ 失败' :
-                     log.status === 'skipped' ? '跳过' : '取消'}
-                  </span>
-                  <div className="text-gray-400 text-right">
-                    <span>{new Date(log.startedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                    {log.completedAt && (
-                      <span className="ml-1 text-gray-300">
-                        {Math.round((new Date(log.completedAt).getTime() - new Date(log.startedAt).getTime()) / 1000)}s
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {log.skipReason && <p className="text-gray-400">{log.skipReason}</p>}
-                {log.error && <p className="text-red-500">{log.error}</p>}
-                {log.output && (
-                  <pre className="text-gray-600 bg-gray-50 rounded p-1.5 overflow-x-auto max-h-28 text-xs whitespace-pre-wrap">
-                    {log.output.slice(0, 500)}{log.output.length > 500 ? '…' : ''}
-                  </pre>
-                )}
-              </div>
-            ))}
           </div>
         )}
 
