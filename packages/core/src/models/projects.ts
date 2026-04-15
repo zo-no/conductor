@@ -107,6 +107,9 @@ export function unarchiveProject(id: string): Project | null {
 
 export function deleteProject(id: string): boolean {
   const db = getDb()
+  // Delete tasks first (task_logs cascade from tasks, task_ops have no FK)
+  db.run('DELETE FROM tasks WHERE project_id = ?', [id])
+  db.run('DELETE FROM system_prompts WHERE key = ?', [`proj_${id}`])
   const result = db.run('DELETE FROM projects WHERE id = ?', [id])
   return result.changes > 0
 }

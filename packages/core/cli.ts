@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 import { Command } from 'commander'
-import { initDb } from './src/db/init'
 import { registerProjectCommands } from './src/controllers/cli/projects'
 import { registerTaskCommands } from './src/controllers/cli/tasks'
 import { registerPromptCommands } from './src/controllers/cli/prompts'
@@ -9,8 +8,6 @@ const program = new Command()
   .name('conductor')
   .description('local-first task scheduler for humans and AI')
   .version('0.1.0')
-
-initDb()
 
 registerProjectCommands(program)
 registerTaskCommands(program)

@@ -8,15 +8,13 @@ import {
 } from '../../models/tasks'
 import { getTaskLogs } from '../../models/task-logs'
 import { getTaskOps, createTaskOp } from '../../models/task-ops'
-import { runTask, registerTask, unregisterTask } from '../../services/scheduler'
+import { executeTask } from '../../services/executor'
+import { createTaskLog, updateTaskLogCompleted } from '../../models/task-logs'
 import { print, error } from './output'
 import { initDb } from '../../db/init'
-import { reconcile, startScheduler } from '../../services/scheduler'
 
 function ensureDb(): void {
   initDb()
-  reconcile()
-  startScheduler()
 }
 
 export function registerTaskCommands(program: Command): void {
@@ -159,7 +157,6 @@ export function registerTaskCommands(program: Command): void {
       })
 
       createTaskOp({ taskId: t.id, op: 'created', actor: opts.createdBy as 'human' | 'ai' })
-      registerTask(t)
 
       print(t, opts.json)
     })
@@ -194,7 +191,6 @@ export function registerTaskCommands(program: Command): void {
       }
 
       const updated = updateTask(id, updates)!
-      registerTask(updated)
       print(updated, opts.json)
     })
 
@@ -207,7 +203,6 @@ export function registerTaskCommands(program: Command): void {
       const t = getTask(id)
       if (!t) error(`task ${id} not found`)
       createTaskOp({ taskId: id, op: 'deleted', actor: 'human' })
-      unregisterTask(id)
       deleteTask(id)
       print({ ok: true }, opts.json)
     })
@@ -220,9 +215,23 @@ export function registerTaskCommands(program: Command): void {
       ensureDb()
       const t = getTask(id)
       if (!t) error(`task ${id} not found`)
-      await runTask(id, 'cli')
-      const updated = getTask(id)
-      print(updated, opts.json)
+      if (t!.assignee !== 'ai') error('only ai tasks can be run manually')
+      if (!t!.executor) error('task has no executor configured')
+
+      const prevStatus = t!.status
+      updateTask(id, { status: 'running' })
+      createTaskOp({ taskId: id, op: 'triggered', fromStatus: prevStatus, toStatus: 'running', actor: 'human' })
+      const logEntry = createTaskLog({ taskId: id, status: 'success', triggeredBy: 'cli', startedAt: new Date().toISOString() })
+
+      const result = await executeTask(id)
+      const finalStatus = result.success ? 'success' : 'failed'
+      updateTaskLogCompleted(logEntry.id, finalStatus, result.output, result.error)
+
+      const newStatus = t!.kind === 'recurring' && result.success ? 'pending' : (result.success ? 'done' : 'failed')
+      updateTask(id, { status: newStatus })
+      createTaskOp({ taskId: id, op: result.success ? 'done' : 'status_changed', fromStatus: 'running', toStatus: newStatus, actor: 'human' })
+
+      print(getTask(id), opts.json)
       process.exit(0)
     })
 
@@ -250,7 +259,10 @@ export function registerTaskCommands(program: Command): void {
           fromStatus: 'blocked', toStatus: 'pending',
           actor: 'human', note: `unblocked by human task ${id}`,
         })
-        await runTask(bt.id, 'cli')
+        // fire-and-forget: trigger unblocked AI task
+        void executeTask(bt.id).then((result) => {
+          updateTask(bt.id, { status: result.success ? 'done' : 'failed' })
+        })
       }
 
       print(updated, opts.json)

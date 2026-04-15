@@ -4,6 +4,9 @@ import {
   getProjectPromptKey,
 } from '../../models/system-prompts'
 import { print, error } from './output'
+import { initDb } from '../../db/init'
+
+function ensureDb(): void { initDb() }
 
 export function registerPromptCommands(program: Command): void {
   const prompt = program.command('prompt').description('manage system prompts')
@@ -14,6 +17,7 @@ export function registerPromptCommands(program: Command): void {
     .option('--project <id>', 'project id (omit for system-level)')
     .option('--json', 'output as JSON')
     .action((opts) => {
+      ensureDb()
       const key = opts.project ? getProjectPromptKey(opts.project) : 'default'
       const p = getSystemPrompt(key)
       if (!p) error('prompt not found')
@@ -25,6 +29,7 @@ export function registerPromptCommands(program: Command): void {
     .description('set a prompt')
     .option('--project <id>', 'project id (omit for system-level)')
     .action((content, opts) => {
+      ensureDb()
       const key = opts.project ? getProjectPromptKey(opts.project) : 'default'
       const p = setSystemPrompt(key, content)
       console.log(`prompt set (key: ${p.key})`)
@@ -36,6 +41,7 @@ export function registerPromptCommands(program: Command): void {
     .option('--project <id>', 'project id (omit for system-level)')
     .option('--json', 'output as JSON')
     .action((opts) => {
+      ensureDb()
       const key = opts.project ? getProjectPromptKey(opts.project) : 'default'
       const ok = deleteSystemPrompt(key)
       if (!ok) error('prompt not found')
