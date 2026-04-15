@@ -367,11 +367,11 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="px-5 py-4 space-y-5">
+          <div className="px-5 py-4 space-y-3.5">
 
             {/* Title */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">标题 *</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">标题 *</label>
               <input
                 autoFocus
                 value={title}
@@ -383,7 +383,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
 
             {/* Description */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">描述</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">描述</label>
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
@@ -396,7 +396,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
             {/* Assignee — segment control (create only) */}
             {!isEdit && (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">执行者</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">执行者</label>
                 <SegmentControl
                   value={assignee}
                   onChange={handleAssigneeChange}
@@ -410,7 +410,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
 
             {/* Schedule — segment control */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">触发方式</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">触发方式</label>
               <SegmentControl
                 value={scheduleKind}
                 onChange={setScheduleKind}
@@ -425,7 +425,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
             {/* Scheduled time */}
             {scheduleKind === 'scheduled' && (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">执行时间 *</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">执行时间 *</label>
                 <ScheduledPicker value={scheduledAt} onChange={setScheduledAt} />
               </div>
             )}
@@ -433,7 +433,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
             {/* Recurring config */}
             {scheduleKind === 'recurring' && (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">执行周期 *</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">执行周期 *</label>
                 <RecurringPicker cron={cron} onChange={setCron} />
               </div>
             )}
@@ -441,7 +441,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
             {/* Executor type — segment control (AI only) */}
             {isAI && (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">执行器</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">执行器</label>
                 <SegmentControl
                   value={executorKind}
                   onChange={setExecutorKind}
@@ -582,7 +582,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
             {/* dependsOn */}
             {availableTasks.length > 0 && (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">前置任务（完成后才触发）</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">前置任务（完成后才触发）</label>
                 <select
                   value={dependsOn}
                   onChange={e => setDependsOn(e.target.value)}
