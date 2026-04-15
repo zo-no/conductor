@@ -378,7 +378,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 flex-shrink-0">
           <h2 className="text-sm font-semibold text-gray-900">{isEdit ? '编辑任务' : '新建任务'}</h2>
           <button onClick={onCancel} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
