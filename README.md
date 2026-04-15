@@ -1,14 +1,16 @@
 # Conductor
 
-本地优先的任务调度系统，让人类和 AI 共用同一个 todo list。
+任何 AI agent 都能用的本地任务调度系统。
 
-把一个长期目标（理财计划、产品开发、团队流程）交给 agent，它会把目标拆解成可执行的任务，注册定时调度，自动运行，并留下完整的执行记录。
+把一个长期目标（理财计划、产品开发、团队流程）交给你的 agent，它会把目标拆解成可执行的任务，注册定时调度，自动运行，并留下完整的执行记录。
+
+Conductor 不绑定任何特定的 AI 产品。只要 agent 能运行终端命令，就能用 Conductor 管理任务——无论是 Claude Code、Codex CLI、Cursor、Copilot，还是你自己写的 agent。
 
 ---
 
 ## 快速安装
 
-把下面这段话复制给你的 agent（Claude Code 或 Codex CLI），让它帮你完成安装：
+把下面这段话复制给你的 agent，让它帮你完成安装：
 
 ```
 请帮我安装 Conductor。步骤如下：
@@ -20,7 +22,7 @@
 5. 构建 CLI：bun build packages/core/cli.ts --compile --outfile conductor
 6. 安装到 PATH：cp conductor ~/.bun/bin/conductor
 7. 验证安装：conductor version
-8. 安装 Claude Code skills：bash skills/install.sh
+8. 安装 skills（可选，支持 Claude Code 和 Codex CLI）：bash skills/install.sh
 9. 启动后台服务：conductor daemon start
 10. 确认服务正常：conductor daemon status
 
@@ -45,11 +47,12 @@ pnpm install
 bun build packages/core/cli.ts --compile --outfile conductor
 cp conductor ~/.bun/bin/conductor
 
-# 安装 Claude Code skills（可选，使用 /plan-project 等命令需要）
-bash skills/install.sh
-
 # 验证
 conductor version
+
+# 安装 skills（可选）
+# 自动检测 Claude Code（~/.claude）和 Codex CLI（~/.codex）并安装
+bash skills/install.sh
 ```
 
 ---
@@ -60,7 +63,7 @@ conductor version
 # 启动后台调度器（负责定时任务的自动触发）
 conductor daemon start
 
-# 启动 Web UI（开发模式，需要 daemon 已运行）
+# 启动 Web UI（开发模式）
 pnpm --filter @conductor/web dev
 # 打开 http://localhost:5173
 ```
@@ -69,13 +72,15 @@ pnpm --filter @conductor/web dev
 
 ## 用 Agent 规划你的第一个项目
 
-安装完成后，在 Claude Code 里运行：
+如果你用的是 Claude Code 或 Codex CLI，安装 skills 后可以直接运行：
 
 ```
 /plan-project
 ```
 
-通过对话描述你的目标（理财计划、产品开发、学习计划……），agent 会帮你把目标拆解成 Conductor 任务，设置好定时调度，写入系统。
+通过对话描述你的目标（理财计划、产品开发、学习计划……），agent 会把目标拆解成 Conductor 任务，设置好定时调度，写入系统。
+
+其他 agent 可以直接通过 CLI 操作，详见 [Agent 接入指南](docs/integration.md)。
 
 ---
 
