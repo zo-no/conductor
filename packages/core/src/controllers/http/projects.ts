@@ -13,7 +13,13 @@ app.get('/', (c) => {
 app.post('/', async (c) => {
   const body = await c.req.json()
   if (!body.name) return c.json({ error: 'name is required' }, 400)
-  const project = createProject({ name: body.name, goal: body.goal, workDir: body.workDir })
+  const project = createProject({
+    name: body.name,
+    goal: body.goal,
+    workDir: body.workDir,
+    groupId: body.groupId,
+    pinned: body.pinned,
+  })
   return c.json(project, 201)
 })
 

@@ -13,6 +13,10 @@ import {
   archiveProject, unarchiveProject, deleteProject,
 } from '../src/models/projects'
 import {
+  createGroup, getGroup, listGroups, updateGroup, deleteGroup,
+  reorderGroups, reorderProjectsInGroup, getProjectsView,
+} from '../src/models/project-groups'
+import {
   createTask, getTask, listTasks, updateTask, deleteTask,
   getBlockedByTask, getDependentTasks, reconcileRunningTasks,
 } from '../src/models/tasks'
@@ -55,6 +59,73 @@ assert('archiveProject archivedAt set', !!archived?.archivedAt)
 const unarchived = unarchiveProject(p1.id)
 assert('unarchiveProject archived=false', unarchived?.archived === false)
 assert('unarchiveProject archivedAt cleared', !unarchived?.archivedAt)
+
+// ── project_groups ────────────────────────────────────────────────────────────
+section('project_groups')
+
+const g1 = createGroup({ name: 'Work', createdBy: 'human' })
+assert('createGroup returns id', g1.id.startsWith('group_'))
+assert('createGroup name', g1.name === 'Work')
+assert('createGroup collapsed=false by default', g1.collapsed === false)
+assert('createGroup order=0 for first', g1.order === 0)
+
+const g2 = createGroup({ name: 'Personal', collapsed: true, createdBy: 'ai' })
+assert('createGroup collapsed=true', g2.collapsed === true)
+assert('createGroup order increments', g2.order === 1)
+assert('createGroup createdBy ai', g2.createdBy === 'ai')
+
+assert('getGroup', getGroup(g1.id)?.id === g1.id)
+assert('getGroup null for missing', getGroup('group_missing') === null)
+
+const groups = listGroups()
+assert('listGroups returns both', groups.length >= 2)
+
+const updatedG = updateGroup(g1.id, { name: 'Work Updated', collapsed: true })
+assert('updateGroup name', updatedG?.name === 'Work Updated')
+assert('updateGroup collapsed', updatedG?.collapsed === true)
+assert('updateGroup null for missing', updateGroup('group_x', { name: 'x' }) === null)
+
+// assign projects to groups
+const pGrouped1 = createProject({ name: 'Grouped Project 1', groupId: g1.id })
+const pGrouped2 = createProject({ name: 'Grouped Project 2', groupId: g1.id })
+assert('createProject with groupId', pGrouped1.groupId === g1.id)
+assert('createProject order in group starts at 0', pGrouped1.order === 0)
+assert('createProject order in group increments', pGrouped2.order === 1)
+
+// pinned field
+const pUnpinned = createProject({ name: 'Unpinned Project', pinned: false })
+assert('createProject pinned=false', pUnpinned.pinned === false)
+const pPinned = createProject({ name: 'Pinned Project' })
+assert('createProject pinned=true by default', pPinned.pinned === true)
+
+// updateProject groupId + pinned
+const pMoved = updateProject(pGrouped1.id, { groupId: g2.id, pinned: false })
+assert('updateProject groupId', pMoved?.groupId === g2.id)
+assert('updateProject pinned=false', pMoved?.pinned === false)
+const pUngrouped = updateProject(pGrouped2.id, { groupId: null })
+assert('updateProject groupId=null (ungrouped)', pUngrouped?.groupId === undefined)
+
+// reorderGroups
+reorderGroups([g2.id, g1.id])
+const reorderedGroups = listGroups()
+assert('reorderGroups g2 first', reorderedGroups[0].id === g2.id)
+assert('reorderGroups g1 second', reorderedGroups[1].id === g1.id)
+
+// getProjectsView
+const view = getProjectsView()
+assert('getProjectsView has groups array', Array.isArray(view.groups))
+assert('getProjectsView has ungrouped array', Array.isArray(view.ungrouped))
+const viewGroup = view.groups.find(g => g.id === g1.id)
+assert('getProjectsView group has projects array', Array.isArray(viewGroup?.projects))
+
+// deleteGroup moves projects to ungrouped
+const gTemp = createGroup({ name: 'Temp Group' })
+const pInTemp = createProject({ name: 'Project in temp', groupId: gTemp.id })
+assert('project in temp group', pInTemp.groupId === gTemp.id)
+deleteGroup(gTemp.id)
+const pAfterDelete = getProject(pInTemp.id)
+assert('deleteGroup moves projects to ungrouped', !pAfterDelete?.groupId)
+assert('deleteGroup removes group', getGroup(gTemp.id) === null)
 
 // ── tasks ─────────────────────────────────────────────────────────────────────
 section('tasks')
@@ -164,13 +235,13 @@ const bigOutput = 'x'.repeat(70 * 1024)
 const logBig = createTaskLog({ taskId: t2.id, status: 'success', triggeredBy: 'cli', output: bigOutput })
 assert('createTaskLog truncates output', (logBig.output?.length ?? 0) <= 65600)
 
-// retention: only 50 logs per task
+// retention: only 200 logs per task
 const tMany = createTask({ projectId: p1.id, title: 'Many logs', assignee: 'ai', kind: 'once' })
-for (let i = 0; i < 55; i++) {
+for (let i = 0; i < 205; i++) {
   createTaskLog({ taskId: tMany.id, status: 'success', triggeredBy: 'scheduler' })
 }
-const manyLogs = getTaskLogs(tMany.id, 100)
-assert('createTaskLog retention max 50', manyLogs.length <= 50)
+const manyLogs = getTaskLogs(tMany.id, 300)
+assert('createTaskLog retention max 200', manyLogs.length <= 200)
 
 // ── task_ops ──────────────────────────────────────────────────────────────────
 section('task_ops')

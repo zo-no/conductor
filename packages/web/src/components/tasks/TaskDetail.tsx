@@ -108,13 +108,13 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-semibold text-gray-900 leading-snug">{task.title}</h2>
           <div className="flex items-center gap-2 mt-1">
-            <span className={`text-xs px-1.5 py-0.5 rounded ${
-              task.assignee === 'ai' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'
+            <span className={`text-xs ${
+              task.assignee === 'ai' ? 'text-gray-400' : 'text-gray-400'
             }`}>
               {task.assignee === 'ai' ? 'AI' : '人类'}
             </span>
             <span className="text-xs text-gray-400">{task.kind}</span>
-            <span className={`text-xs px-1.5 py-0.5 rounded ${statusColor(task.status)}`}>
+            <span className={`text-xs ${statusColor(task.status)}`}>
               {statusLabel(task.status)}
             </span>
           </div>
@@ -153,7 +153,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
             key={t}
             onClick={() => { setTab(t as any); setSelectedRun(null) }}
             className={`flex-1 py-2 text-xs font-medium ${
-              tab === t ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600'
+              tab === t ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-400 hover:text-gray-600'
             }`}
           >
             {{ info: '详情', history: '历史', ops: '日志' }[t]}
@@ -453,7 +453,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
           {task.assignee === 'ai' && (task.status === 'pending' || task.status === 'failed' || task.status === 'cancelled') && (
             <button
               onClick={handleRun}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 active:scale-95 transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800 active:scale-95 transition-all"
             >
               <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
@@ -478,14 +478,14 @@ function statusLabel(status: string): string {
 
 function statusColor(status: string): string {
   const map: Record<string, string> = {
-    pending: 'bg-gray-100 text-gray-500',
-    running: 'bg-green-50 text-green-600',
-    done: 'bg-gray-100 text-gray-400',
-    failed: 'bg-red-50 text-red-500',
-    cancelled: 'bg-gray-100 text-gray-400',
-    blocked: 'bg-orange-50 text-orange-500',
+    pending: 'text-gray-400',
+    running: 'text-green-600 font-medium',
+    done: 'text-gray-400',
+    failed: 'text-red-500',
+    cancelled: 'text-gray-400',
+    blocked: 'text-orange-500',
   }
-  return map[status] ?? 'bg-gray-100 text-gray-500'
+  return map[status] ?? 'text-gray-400'
 }
 
 function opLabel(op: string): string {

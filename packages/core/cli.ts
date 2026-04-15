@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { Command } from 'commander'
 import { registerProjectCommands } from './src/controllers/cli/projects'
+import { registerGroupCommands } from './src/controllers/cli/groups'
 import { registerTaskCommands } from './src/controllers/cli/tasks'
 import { registerPromptCommands } from './src/controllers/cli/prompts'
 
@@ -10,6 +11,7 @@ const program = new Command()
   .version('0.1.0')
 
 registerProjectCommands(program)
+registerGroupCommands(program)
 registerTaskCommands(program)
 registerPromptCommands(program)
 
@@ -89,6 +91,17 @@ program
         'get/set system prompt': 'conductor prompt get --json | conductor prompt set "<content>"',
         'get/set project prompt': 'conductor prompt get --project <id> --json | conductor prompt set "<content>" --project <id>',
         'check daemon': 'conductor daemon status',
+        'list groups with projects': 'conductor group list --json',
+        'create group': 'conductor group create --name "<name>" [--collapsed] [--created-by ai] --json',
+        'update group': 'conductor group update <id> [--name "<name>"] [--collapse|--expand] --json',
+        'delete group (projects move to ungrouped)': 'conductor group delete <id> --json',
+        'reorder groups': 'conductor group reorder <id1> <id2> <id3> ... --json',
+        'add project to group': 'conductor project update <project-id> --group <group-id> --json',
+        'remove project from group': 'conductor project update <project-id> --no-group --json',
+        'hide project from sidebar': 'conductor project update <project-id> --no-pin --json',
+        'show project in sidebar': 'conductor project update <project-id> --pin --json',
+        'reorder projects in group': 'conductor group reorder-projects <group-id> <proj-id1> <proj-id2> ... --json',
+        'reorder ungrouped projects': 'conductor project reorder-ungrouped <proj-id1> <proj-id2> ... --json',
       },
       prompt_placeholders: ['{date}', '{datetime}', '{taskTitle}', '{taskDescription}', '{projectName}', '{lastOutput}', '{customKey}'],
       task_status_values: ['pending', 'running', 'done', 'failed', 'blocked', 'cancelled'],

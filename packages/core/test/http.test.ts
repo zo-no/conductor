@@ -17,6 +17,10 @@ try { unlinkSync(TEST_DB) } catch {}
 const { initDb } = await import('../src/db/init')
 const { reconcile, startScheduler } = await import('../src/services/scheduler')
 const projectsRouter = (await import('../src/controllers/http/projects')).default
+const groupsModule = await import('../src/controllers/http/groups')
+const groupsRouter = groupsModule.default
+const viewProjectsRouter = groupsModule.viewProjectsRouter
+const ungroupedReorderRouter = groupsModule.ungroupedReorderRouter
 const tasksRouter = (await import('../src/controllers/http/tasks')).default
 const promptsRouter = (await import('../src/controllers/http/prompts')).default
 const { Hono } = await import('hono')
@@ -27,6 +31,9 @@ startScheduler()
 
 const app = new Hono()
 app.route('/api/projects', projectsRouter)
+app.route('/api/groups', groupsRouter)
+app.route('/api/view/projects', viewProjectsRouter)
+app.route('/api/ungrouped/reorder', ungroupedReorderRouter)
 app.route('/api/tasks', tasksRouter)
 app.route('/api/prompts', promptsRouter)
 app.get('/health', (c) => c.json({ ok: true, pid: process.pid }))
@@ -95,6 +102,89 @@ let projId: string
   const r = await api('POST', `/api/projects/${projId}/unarchive`)
   assert('POST /api/projects/:id/unarchive', r.ok)
   assert('unarchive sets archived=false', r.data?.archived === false)
+}
+
+// ── groups ────────────────────────────────────────────────────────────────────
+section('groups')
+
+let groupId: string
+{
+  const r = await api('POST', '/api/groups', { name: 'Work', collapsed: false })
+  assert('POST /api/groups 201', r.ok)
+  assert('POST /api/groups returns id', r.data?.id?.startsWith('group_'))
+  assert('POST /api/groups name', r.data?.name === 'Work')
+  assert('POST /api/groups collapsed=false', r.data?.collapsed === false)
+  groupId = r.data.id
+}
+
+{
+  const r = await api('GET', '/api/groups')
+  assert('GET /api/groups returns array', Array.isArray(r.data))
+  assert('GET /api/groups contains created group', r.data?.some((g: any) => g.id === groupId))
+  assert('GET /api/groups group has projects array', Array.isArray(r.data?.find((g: any) => g.id === groupId)?.projects))
+}
+
+{
+  const r = await api('GET', `/api/groups/${groupId}`)
+  assert('GET /api/groups/:id 200', r.ok)
+  assert('GET /api/groups/:id returns group', r.data?.id === groupId)
+}
+
+{
+  const r = await api('PATCH', `/api/groups/${groupId}`, { name: 'Work Updated', collapsed: true })
+  assert('PATCH /api/groups/:id name', r.data?.name === 'Work Updated')
+  assert('PATCH /api/groups/:id collapsed', r.data?.collapsed === true)
+}
+
+// assign project to group
+{
+  const r = await api('PATCH', `/api/projects/${projId}`, { groupId, pinned: false })
+  assert('PATCH /api/projects/:id groupId', r.data?.groupId === groupId)
+  assert('PATCH /api/projects/:id pinned=false', r.data?.pinned === false)
+}
+
+// view/projects
+{
+  const r = await api('GET', '/api/view/projects')
+  assert('GET /api/view/projects ok', r.ok)
+  assert('GET /api/view/projects has groups', Array.isArray(r.data?.groups))
+  assert('GET /api/view/projects has ungrouped', Array.isArray(r.data?.ungrouped))
+  const g = r.data?.groups?.find((g: any) => g.id === groupId)
+  assert('GET /api/view/projects group has project', g?.projects?.some((p: any) => p.id === projId))
+}
+
+// second group for reorder test
+let groupId2: string
+{
+  const r = await api('POST', '/api/groups', { name: 'Personal' })
+  groupId2 = r.data.id
+}
+
+{
+  const r = await api('POST', '/api/groups/reorder', { ids: [groupId2, groupId] })
+  assert('POST /api/groups/reorder ok', r.data?.ok === true)
+  const listR = await api('GET', '/api/groups')
+  assert('reorder groups: groupId2 first', listR.data?.[0]?.id === groupId2)
+}
+
+// reorder projects within group
+{
+  const p2r = await api('POST', '/api/projects', { name: 'Second project in group', groupId })
+  const pid2 = p2r.data.id
+  const r = await api('POST', `/api/groups/${groupId}/projects/reorder`, { ids: [pid2, projId] })
+  assert('POST /api/groups/:id/projects/reorder ok', r.data?.ok === true)
+}
+
+// delete group → projects move to ungrouped
+{
+  const gDel = await api('POST', '/api/groups', { name: 'To Delete' })
+  const gDelId = gDel.data.id
+  const pDel = await api('POST', '/api/projects', { name: 'In deleted group', groupId: gDelId })
+  const pDelId = pDel.data.id
+  const r = await api('DELETE', `/api/groups/${gDelId}`)
+  assert('DELETE /api/groups/:id ok', r.data?.ok === true)
+  const pAfter = await api('GET', `/api/projects/${pDelId}`)
+  assert('DELETE group: project groupId=null', !pAfter.data?.groupId)
 }
 
 // ── tasks ─────────────────────────────────────────────────────────────────────

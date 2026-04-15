@@ -211,10 +211,12 @@ export function bootstrap(): void {
   // 1. Ensure all seed projects exist
   for (const proj of SEED_PROJECTS) {
     if (!getProject(proj.id)) {
+      // proj_conductor is pinned=false (background project, hidden from sidebar by default)
+      const pinned = proj.id === SYSTEM_PROJECT_ID ? 0 : 1
       db.run(
-        `INSERT INTO projects (id, name, goal, archived, created_by, created_at, updated_at)
-         VALUES (?, ?, ?, 0, 'system', ?, ?)`,
-        [proj.id, proj.name, proj.goal, ts, ts],
+        `INSERT INTO projects (id, name, goal, archived, pinned, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, 0, ?, 'system', ?, ?)`,
+        [proj.id, proj.name, proj.goal, pinned, ts, ts],
       )
       console.log(`[bootstrap] created project: ${proj.name}`)
     }

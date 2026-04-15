@@ -1,3 +1,24 @@
+// ProjectGroup
+
+export interface ProjectGroup {
+  id: string           // 'group_' + hex
+  name: string
+  order: number        // sidebar display order
+  collapsed: boolean   // default collapsed state in sidebar
+  createdBy: 'human' | 'ai' | 'system'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface GroupWithProjects extends ProjectGroup {
+  projects: Project[]
+}
+
+export interface ProjectsView {
+  groups: GroupWithProjects[]
+  ungrouped: Project[]
+}
+
 // Project
 
 export interface Project {
@@ -12,6 +33,9 @@ export interface Project {
   archived: boolean
   archivedAt?: string
   createdBy?: 'human' | 'system'  // 'system' = built-in, hidden from normal UI
+  pinned: boolean                 // false = collapsed to "more" section in sidebar
+  groupId?: string                // null = ungrouped
+  order: number                   // order within group (or ungrouped list)
 }
 
 // Task

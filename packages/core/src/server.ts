@@ -3,6 +3,7 @@ import { initDb } from './db/init'
 import { reconcile, startScheduler } from './services/scheduler'
 import { bootstrap } from './services/bootstrap'
 import projectsRouter from './controllers/http/projects'
+import groupsRouter, { viewProjectsRouter, ungroupedReorderRouter } from './controllers/http/groups'
 import tasksRouter from './controllers/http/tasks'
 import promptsRouter from './controllers/http/prompts'
 import eventsRouter from './controllers/http/events'
@@ -13,6 +14,9 @@ const PORT = parseInt(process.env.CONDUCTOR_PORT ?? '7762')
 const app = new Hono()
 
 app.route('/api/projects', projectsRouter)
+app.route('/api/groups', groupsRouter)
+app.route('/api/view/projects', viewProjectsRouter)
+app.route('/api/ungrouped/reorder', ungroupedReorderRouter)
 app.route('/api/tasks', tasksRouter)
 app.route('/api/tasks/:id/runs', runsRouter)
 app.route('/api/prompts', promptsRouter)

@@ -21,6 +21,9 @@ function rowToProject(row: Record<string, unknown>): Project {
     archived: row.archived === 1,
     archivedAt: (row.archived_at as string) ?? undefined,
     createdBy: (row.created_by as 'human' | 'system') ?? 'human',
+    pinned: row.pinned !== 0,
+    groupId: (row.group_id as string) ?? undefined,
+    order: (row.order_index as number) ?? 0,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   }
@@ -42,16 +45,27 @@ export interface CreateProjectInput {
   name: string
   goal?: string
   workDir?: string
+  groupId?: string
+  pinned?: boolean
 }
 
 export function createProject(input: CreateProjectInput): Project {
   const db = getDb()
   const id = newId()
   const ts = now()
+  // Place at end of its group (or ungrouped list)
+  let maxRow: { m: number | null }
+  if (input.groupId) {
+    maxRow = db.query('SELECT MAX(order_index) as m FROM projects WHERE group_id = ?').get(input.groupId) as { m: number | null }
+  } else {
+    maxRow = db.query('SELECT MAX(order_index) as m FROM projects WHERE group_id IS NULL').get() as { m: number | null }
+  }
+  const order = (maxRow?.m ?? -1) + 1
   db.run(
-    `INSERT INTO projects (id, name, goal, work_dir, archived, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 0, ?, ?)`,
-    [id, input.name, input.goal ?? null, input.workDir ?? null, ts, ts],
+    `INSERT INTO projects (id, name, goal, work_dir, archived, group_id, order_index, pinned, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
+    [id, input.name, input.goal ?? null, input.workDir ?? null,
+     input.groupId ?? null, order, input.pinned !== false ? 1 : 0, ts, ts],
   )
   return getProject(id)!
 }
@@ -60,6 +74,9 @@ export interface UpdateProjectInput {
   name?: string
   goal?: string
   workDir?: string
+  pinned?: boolean
+  groupId?: string | null
+  order?: number
 }
 
 export function updateProject(id: string, input: UpdateProjectInput): Project | null {
@@ -68,16 +85,18 @@ export function updateProject(id: string, input: UpdateProjectInput): Project | 
   if (!project) return null
 
   const ts = now()
-  db.run(
-    `UPDATE projects SET name = ?, goal = ?, work_dir = ?, updated_at = ? WHERE id = ?`,
-    [
-      input.name ?? project.name,
-      input.goal !== undefined ? input.goal : (project.goal ?? null),
-      input.workDir !== undefined ? input.workDir : (project.workDir ?? null),
-      ts,
-      id,
-    ],
-  )
+  const fields: string[] = ['updated_at = ?']
+  const params: unknown[] = [ts]
+
+  if (input.name !== undefined)    { fields.push('name = ?');        params.push(input.name) }
+  if (input.goal !== undefined)    { fields.push('goal = ?');        params.push(input.goal ?? null) }
+  if (input.workDir !== undefined) { fields.push('work_dir = ?');    params.push(input.workDir ?? null) }
+  if (input.pinned !== undefined)  { fields.push('pinned = ?');      params.push(input.pinned ? 1 : 0) }
+  if ('groupId' in input)          { fields.push('group_id = ?');    params.push(input.groupId ?? null) }
+  if (input.order !== undefined)   { fields.push('order_index = ?'); params.push(input.order) }
+
+  params.push(id)
+  db.run(`UPDATE projects SET ${fields.join(', ')} WHERE id = ?`, params)
   return getProject(id)!
 }
 

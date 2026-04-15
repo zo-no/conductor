@@ -25,6 +25,19 @@ export function initDb(): void {
   const db = getDb()
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS project_groups (
+      id          TEXT PRIMARY KEY NOT NULL,
+      name        TEXT NOT NULL,
+      order_index INTEGER NOT NULL DEFAULT 0,
+      collapsed   INTEGER NOT NULL DEFAULT 0,
+      created_by  TEXT NOT NULL DEFAULT 'human',
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL
+    ) STRICT
+  `)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_groups_order ON project_groups(order_index ASC)`)
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS projects (
       id            TEXT PRIMARY KEY NOT NULL,
       name          TEXT NOT NULL,
@@ -147,5 +160,8 @@ export function initDb(): void {
   try { db.run(`ALTER TABLE task_runs ADD COLUMN session_id TEXT`) } catch {}
   try { db.run(`ALTER TABLE tasks ADD COLUMN last_session_id TEXT`) } catch {}
   try { db.run(`ALTER TABLE projects ADD COLUMN created_by TEXT NOT NULL DEFAULT 'human'`) } catch {}
+  try { db.run(`ALTER TABLE projects ADD COLUMN pinned INTEGER NOT NULL DEFAULT 1`) } catch {}
+  try { db.run(`ALTER TABLE projects ADD COLUMN group_id TEXT REFERENCES project_groups(id)`) } catch {}
+  try { db.run(`ALTER TABLE projects ADD COLUMN order_index INTEGER NOT NULL DEFAULT 0`) } catch {}
 
 }
