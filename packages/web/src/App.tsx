@@ -17,8 +17,13 @@ type AssigneeTab = 'all' | 'human' | 'ai'
 export default function App() {
   const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => {
+    return new URLSearchParams(window.location.search).get('project')
+  })
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [pendingTaskId] = useState<string | null>(() => {
+    return new URLSearchParams(window.location.search).get('task')
+  })
   const [assigneeTab, setAssigneeTab] = useState<AssigneeTab>('all')
   const [loading, setLoading] = useState(true)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -48,9 +53,9 @@ export default function App() {
 
   useEffect(() => {
     loadProjects().then(ps => {
-      if (ps.length > 0) setSelectedProjectId(ps[0].id)
+      if (ps.length > 0 && !selectedProjectId) setSelectedProjectId(ps[0].id)
     }).finally(() => setLoading(false))
-  }, [loadProjects])
+  }, [loadProjects]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load tasks for selected project
   const loadTasks = useCallback(() => {
@@ -67,13 +72,25 @@ export default function App() {
 
   useSSE(selectedProjectId, handleSSE)
 
-  // Keep selectedTask in sync with latest task data
+  // Keep selectedTask in sync with latest task data; also restore from URL on first load
   useEffect(() => {
     if (selectedTask) {
       const fresh = tasks.find(t => t.id === selectedTask.id)
       if (fresh) setSelectedTask(fresh)
+    } else if (pendingTaskId) {
+      const found = tasks.find(t => t.id === pendingTaskId)
+      if (found) setSelectedTask(found)
     }
   }, [tasks]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync selection to URL
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (selectedProjectId) params.set('project', selectedProjectId)
+    if (selectedTask) params.set('task', selectedTask.id)
+    const newUrl = `${window.location.pathname}?${params.toString()}`
+    window.history.replaceState(null, '', newUrl)
+  }, [selectedProjectId, selectedTask])
 
   function handleSelectProject(id: string) {
     setSelectedProjectId(id)
