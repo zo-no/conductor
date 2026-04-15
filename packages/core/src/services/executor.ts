@@ -5,23 +5,18 @@ import type { Task, ScriptExecutor, AiPromptExecutor, HttpExecutor } from '@cond
 import { getTask } from '../models/tasks'
 import { getProject } from '../models/projects'
 import { getDefaultPrompt, getSystemPrompt, getProjectPromptKey } from '../models/system-prompts'
+import { createRun, completeRun, appendSpoolLine } from '../models/task-runs'
+import { emit } from './events'
 
 // ─── Context injection ────────────────────────────────────────────────────────
 
-function buildPrompt(task: Task): string {
+function interpolate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? `{${key}}`)
+}
+
+function buildVars(task: Task): Record<string, string> {
   const project = getProject(task.projectId)
-  const defaultPrompt = getDefaultPrompt()
-  const projectPrompt = getSystemPrompt(getProjectPromptKey(task.projectId))
-
-  const executor = task.executor as AiPromptExecutor
-  const parts: string[] = []
-  if (defaultPrompt) parts.push(defaultPrompt.content)
-  if (projectPrompt) parts.push(projectPrompt.content)
-  parts.push(executor.prompt)
-
-  const combined = parts.join('\n\n')
-
-  const vars: Record<string, string> = {
+  return {
     date: new Date().toISOString().slice(0, 10),
     datetime: new Date().toISOString(),
     taskTitle: task.title,
@@ -30,13 +25,30 @@ function buildPrompt(task: Task): string {
     completionOutput: task.completionOutput ?? '',
     ...(task.executorOptions?.customVars ?? {}),
   }
+}
 
-  if (task.executorOptions?.includeLastOutput) {
-    // lastOutput is provided via customVars or completionOutput
-    // already included above via completionOutput
-  }
+/**
+ * Build the user-facing prompt (task-level only).
+ * System/project prompts are passed via --append-system-prompt separately.
+ */
+function buildUserPrompt(task: Task): string {
+  const executor = task.executor as AiPromptExecutor
+  return interpolate(executor.prompt, buildVars(task))
+}
 
-  return combined.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? `{${key}}`)
+/**
+ * Build the system prompt appendix (system-level + project-level).
+ * Returns null if neither is set.
+ */
+function buildSystemPromptAppend(task: Task): string | null {
+  const defaultPrompt = getDefaultPrompt()
+  const projectPrompt = getSystemPrompt(getProjectPromptKey(task.projectId))
+
+  const parts: string[] = []
+  if (defaultPrompt) parts.push(interpolate(defaultPrompt.content, buildVars(task)))
+  if (projectPrompt) parts.push(interpolate(projectPrompt.content, buildVars(task)))
+
+  return parts.length > 0 ? parts.join('\n\n') : null
 }
 
 function resolveCwd(folder?: string): string {
@@ -101,19 +113,27 @@ export function executeScript(task: Task): Promise<ExecutionResult> {
 
 // ─── AI prompt executor ───────────────────────────────────────────────────────
 
-export function executeAiPrompt(task: Task): Promise<ExecutionResult> {
+export function executeAiPrompt(
+  task: Task,
+  triggeredBy: 'manual' | 'scheduler' | 'api' | 'cli' = 'manual',
+): Promise<ExecutionResult> {
   const executor = task.executor as AiPromptExecutor
   const project = getProject(task.projectId)
-  const cwd = resolveCwd(project?.workDir)
-  const prompt = buildPrompt(task)
+  const cwd = resolveCwd(executor.workDir ?? project?.workDir)
+  const userPrompt = buildUserPrompt(task)
+  const systemAppend = buildSystemPromptAppend(task)
   const timeout = 300_000 // 5 min
 
   const args = [
-    '-p', prompt,
+    '-p', userPrompt,
     '--output-format', 'stream-json',
     '--verbose',
   ]
+  if (systemAppend) args.push('--append-system-prompt', systemAppend)
   if (executor.model) args.push('--model', executor.model)
+
+  // Create run record
+  const run = createRun(task.id, triggeredBy)
 
   return new Promise((resolve) => {
     const proc = spawn('claude', args, {
@@ -121,13 +141,17 @@ export function executeAiPrompt(task: Task): Promise<ExecutionResult> {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
-    const outputLines: string[] = []
     let lastAssistantText = ''
     let timedOut = false
 
-    const rl = require('readline').createInterface({ input: proc.stdout })
+    const { createInterface } = require('readline')
+    const rl = createInterface({ input: proc.stdout })
     rl.on('line', (line: string) => {
-      outputLines.push(line)
+      // Persist every line to spool
+      appendSpoolLine(run.id, line)
+      // Emit SSE for real-time frontend streaming
+      emit({ type: 'run_line', data: { taskId: task.id, runId: run.id, line, ts: new Date().toISOString() } })
+
       try {
         const obj = JSON.parse(line)
         if (obj.type === 'assistant') {
@@ -152,14 +176,18 @@ export function executeAiPrompt(task: Task): Promise<ExecutionResult> {
 
     proc.on('close', (code) => {
       clearTimeout(timer)
-      const output = lastAssistantText || outputLines.join('\n')
+      const output = lastAssistantText
       const stderr = stderrLines.join('')
       if (timedOut) {
+        completeRun(run.id, 'failed', 'execution timeout')
         resolve({ success: false, output, error: 'execution timeout' })
       } else if (code === 0) {
+        completeRun(run.id, 'done')
         resolve({ success: true, output })
       } else {
-        resolve({ success: false, output, error: stderr || `exited with code ${code}` })
+        const err = stderr || `exited with code ${code}`
+        completeRun(run.id, 'failed', err)
+        resolve({ success: false, output, error: err })
       }
     })
 

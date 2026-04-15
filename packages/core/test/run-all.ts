@@ -8,6 +8,9 @@ import { spawnSync } from 'child_process'
 const suites = [
   { name: 'models', file: 'packages/core/test/models.test.ts' },
   { name: 'executor', file: 'packages/core/test/executor.test.ts' },
+  { name: 'events', file: 'packages/core/test/events.test.ts' },
+  { name: 'prompt', file: 'packages/core/test/prompt.test.ts' },
+  { name: 'scheduler', file: 'packages/core/test/scheduler.test.ts' },
   { name: 'http', file: 'packages/core/test/http.test.ts' },
   { name: 'cli', file: 'packages/core/test-cli.ts' },
 ]

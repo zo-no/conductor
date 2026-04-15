@@ -117,4 +117,29 @@ export function initDb(): void {
       updated_at TEXT NOT NULL
     ) STRICT
   `)
+
+  // task_runs: one row per execution attempt
+  db.run(`
+    CREATE TABLE IF NOT EXISTS task_runs (
+      id           TEXT PRIMARY KEY NOT NULL,
+      task_id      TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      status       TEXT NOT NULL DEFAULT 'running',  -- 'running' | 'done' | 'failed' | 'cancelled'
+      triggered_by TEXT NOT NULL,
+      started_at   TEXT NOT NULL,
+      completed_at TEXT,
+      error        TEXT
+    ) STRICT
+  `)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_task_runs_task ON task_runs(task_id, started_at DESC)`)
+
+  // task_run_spool: one row per stdout line from claude
+  db.run(`
+    CREATE TABLE IF NOT EXISTS task_run_spool (
+      id      INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id  TEXT NOT NULL REFERENCES task_runs(id) ON DELETE CASCADE,
+      ts      TEXT NOT NULL,
+      line    TEXT NOT NULL
+    ) STRICT
+  `)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_spool_run ON task_run_spool(run_id, id ASC)`)
 }

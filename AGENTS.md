@@ -42,6 +42,7 @@ conductor/
 │   ├── execution-model.md
 │   ├── database-schema.md
 │   ├── cli-api.md
+│   ├── ui-design.md
 │   └── decisions.md
 ├── AGENTS.md
 └── pnpm-workspace.yaml
@@ -78,8 +79,15 @@ Controller — CLI（packages/core/src/controllers/cli/）
 
 ## 与 MelodySync 的关系
 
-MelodySync v2 是 conductor 的第一个重度用户：
-- MelodySync 管理 Session（AI 对话会话）
-- conductor 管理 Task（自动化任务）
-- MelodySync Web UI 通过 conductor HTTP API 展示任务状态
-- AI 在 MelodySync 会话中通过 `conductor` CLI 创建和管理任务
+两个独立产品，各自完整，通过 CLI 互调：
+
+- **MelodySync**：AI 对话工具，用户在这里和 AI 聊天、拆解目标
+- **conductor**：任务调度引擎，自动执行已经想清楚的事
+
+典型路径：
+1. 用户在 MelodySync 会话里和 AI 讨论一个目标
+2. AI 调用 `conductor` CLI 把拆出的任务注册成流水线
+3. conductor 按计划自动执行，用户在 conductor UI 里查看和干预
+4. 遇到卡点，conductor 创建人类等待任务，用户在 conductor UI 完成后继续
+
+随着使用积累，越来越多的事情沉淀到 conductor 自动执行，逐步解放用户。

@@ -7,6 +7,7 @@ import { getTaskLogs } from '../../models/task-logs'
 import { getTaskOps } from '../../models/task-ops'
 import { createTaskOp } from '../../models/task-ops'
 import { runTask, registerTask, unregisterTask } from '../../services/scheduler'
+import { emit } from '../../services/events'
 
 const app = new Hono()
 
@@ -44,6 +45,7 @@ app.post('/', async (c) => {
 
   createTaskOp({ taskId: task.id, op: 'created', actor: body.createdBy ?? 'human' })
   registerTask(task)
+  emit({ type: 'task_created', data: { taskId: task.id, projectId: task.projectId } })
 
   return c.json(task, 201)
 })
@@ -60,6 +62,7 @@ app.patch('/:id', async (c) => {
   if (!task) return c.json({ error: 'not found' }, 404)
   // Re-register to update cron if schedule changed
   registerTask(task)
+  emit({ type: 'task_updated', data: { taskId: task.id, projectId: task.projectId } })
   return c.json(task)
 })
 
@@ -70,6 +73,7 @@ app.delete('/:id', (c) => {
   createTaskOp({ taskId: id, op: 'deleted', actor: 'human' })
   unregisterTask(id)
   deleteTask(id)
+  emit({ type: 'task_deleted', data: { taskId: id, projectId: task.projectId } })
   return c.json({ ok: true })
 })
 
@@ -115,6 +119,7 @@ app.post('/:id/done', async (c) => {
     void runTask(blocked_task.id, 'api')
   }
 
+  emit({ type: 'task_updated', data: { taskId: id, projectId: task.projectId } })
   return c.json(updated)
 })
 
@@ -125,6 +130,7 @@ app.post('/:id/cancel', async (c) => {
   const prevStatus = task.status
   const updated = updateTask(id, { status: 'cancelled' })
   createTaskOp({ taskId: id, op: 'cancelled', fromStatus: prevStatus, toStatus: 'cancelled', actor: 'human' })
+  emit({ type: 'task_updated', data: { taskId: id, projectId: task.projectId } })
   return c.json(updated)
 })
 

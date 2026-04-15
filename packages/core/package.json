@@ -9,8 +9,12 @@
     "test": "bun test/run-all.ts",
     "test:models": "bun test/models.test.ts",
     "test:executor": "bun test/executor.test.ts",
+    "test:events": "bun test/events.test.ts",
+    "test:prompt": "bun test/prompt.test.ts",
+    "test:scheduler": "bun test/scheduler.test.ts",
     "test:http": "bun test/http.test.ts",
-    "test:cli": "bun test-cli.ts"
+    "test:cli": "bun test-cli.ts",
+    "test:timeline": "bun ../web/src/lib/timeline.test.ts"
   },
   "dependencies": {
     "@conductor/types": "workspace:*",

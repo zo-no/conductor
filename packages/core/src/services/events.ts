@@ -4,6 +4,7 @@ export type ConductorEvent =
   | { type: 'task_updated'; data: { taskId: string; projectId: string } }
   | { type: 'task_created'; data: { taskId: string; projectId: string } }
   | { type: 'task_deleted'; data: { taskId: string; projectId: string } }
+  | { type: 'run_line'; data: { taskId: string; runId: string; line: string; ts: string } }
 
 type Listener = (event: ConductorEvent) => void
 

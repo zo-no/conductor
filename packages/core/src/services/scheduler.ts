@@ -5,6 +5,7 @@ import { createTaskLog, updateTaskLogCompleted } from '../models/task-logs'
 import { createTaskOp } from '../models/task-ops'
 import { createTask } from '../models/tasks'
 import { executeTask } from './executor'
+import { emit } from './events'
 
 const TAG = '[scheduler]'
 
@@ -72,6 +73,7 @@ export async function runTask(
 
   // Mark running
   updateTask(taskId, { status: 'running' })
+  emit({ type: 'task_updated', data: { taskId, projectId: task.projectId } })
   createTaskOp({
     taskId,
     op: 'triggered',
@@ -101,6 +103,7 @@ export async function runTask(
     const nextStatus = fresh.kind === 'recurring' && result.success ? 'pending' : newTaskStatus
 
     updateTask(taskId, { status: nextStatus })
+    emit({ type: 'task_updated', data: { taskId, projectId: fresh.projectId } })
     createTaskOp({
       taskId,
       op: result.success ? 'done' : 'status_changed',
