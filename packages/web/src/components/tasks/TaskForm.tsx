@@ -198,18 +198,39 @@ function ScheduledPicker({ value, onChange }: { value: string; onChange: (v: str
     { label: '下周一', date: () => nextMondayAt(9) },
   ].filter(opt => opt.date() > now)
 
+  // Show custom input if value doesn't match any quick option
+  const isCustom = value !== '' && !quickOptions.some(opt => {
+    const d = opt.date()
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:00`
+    return value === iso
+  })
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5">
         {quickOptions.map(opt => quickOption(opt.label, opt.date))}
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          className={[
+            'py-1.5 px-2.5 rounded-md text-xs border transition-colors',
+            isCustom || value === ''
+              ? 'border-blue-400 bg-blue-50 text-blue-700 font-medium'
+              : 'border-gray-200 text-gray-500 hover:border-gray-300',
+          ].join(' ')}
+        >
+          自定义
+        </button>
       </div>
-      <input
-        type="datetime-local"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        min={now.toISOString().slice(0, 16)}
-        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-      />
+      {(isCustom || value === '') && (
+        <input
+          type="datetime-local"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          min={now.toISOString().slice(0, 16)}
+          className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+        />
+      )}
     </div>
   )
 }
@@ -388,8 +409,8 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 placeholder="可选描述"
-                rows={2}
-                className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 resize-none"
+                rows={1}
+                className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 resize-y"
               />
             </div>
 
