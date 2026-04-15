@@ -20,6 +20,7 @@ function rowToProject(row: Record<string, unknown>): Project {
     workDir: (row.work_dir as string) ?? undefined,
     archived: row.archived === 1,
     archivedAt: (row.archived_at as string) ?? undefined,
+    createdBy: (row.created_by as 'human' | 'system') ?? 'human',
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   }

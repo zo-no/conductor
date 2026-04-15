@@ -33,8 +33,10 @@ export function Sidebar({
     }
   }
 
-  const active = projects.filter(p => !p.archived)
-  const archived = projects.filter(p => p.archived)
+  // Hide system-created projects (e.g. proj_conductor) from normal users
+  const visible = projects.filter(p => p.createdBy !== 'system')
+  const active = visible.filter(p => !p.archived)
+  const archived = visible.filter(p => p.archived)
 
   return (
     <aside

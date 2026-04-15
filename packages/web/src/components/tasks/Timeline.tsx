@@ -22,7 +22,7 @@ export function Timeline({ tasks, projects, assigneeFilter, onSelect, onRefresh,
 
   // All-projects mode: render one Timeline section per project
   if (projects) {
-    const activeProjects = projects.filter(p => !p.archived)
+    const activeProjects = projects.filter(p => !p.archived && p.createdBy !== 'system')
     return (
       <div className="space-y-8">
         {activeProjects.map(project => {

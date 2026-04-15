@@ -11,6 +11,7 @@ export interface Project {
 
   archived: boolean
   archivedAt?: string
+  createdBy?: 'human' | 'system'  // 'system' = built-in, hidden from normal UI
 }
 
 // Task
