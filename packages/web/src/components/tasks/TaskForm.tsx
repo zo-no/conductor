@@ -12,7 +12,7 @@ interface Props {
 type ExecutorKind = 'none' | 'ai_prompt' | 'script' | 'http'
 type ScheduleKind = 'none' | 'scheduled' | 'recurring'
 
-// ─── Segment control ──────────────────────────────────────────────────────────
+// ─── Segment control — compact inline pill toggle ─────────────────────────────
 
 function SegmentControl<T extends string>({
   options, value, onChange,
@@ -22,22 +22,20 @@ function SegmentControl<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div className="flex gap-2">
+    <div className="inline-flex rounded-md border border-gray-200 overflow-hidden w-full">
       {options.map(opt => (
         <button
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
           className={[
-            'flex-1 flex flex-col items-center gap-0.5 px-2 py-2 rounded-lg border text-xs font-medium transition-colors',
+            'flex-1 px-3 py-1.5 text-xs font-medium transition-colors',
             value === opt.value
-              ? 'border-blue-400 bg-blue-50 text-blue-700'
-              : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50',
+              ? 'bg-gray-900 text-white'
+              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700',
           ].join(' ')}
         >
-          {opt.icon && <span className="text-base leading-none">{opt.icon}</span>}
-          <span>{opt.label}</span>
-          {opt.desc && <span className={`text-[10px] font-normal ${value === opt.value ? 'text-blue-500' : 'text-gray-400'}`}>{opt.desc}</span>}
+          {opt.label}
         </button>
       ))}
     </div>
