@@ -1,0 +1,12 @@
+{
+  "name": "conductor",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "bun run packages/core/src/server.ts",
+    "cli": "bun run packages/core/src/cli.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
