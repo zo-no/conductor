@@ -102,6 +102,14 @@ try {
 db.close();
 `.trim()
 
+// Encode a script as base64 so it can be passed to `sh -c` without any
+// quoting issues. The resulting command is:
+//   bun -e "$(echo <b64> | base64 -d)"
+function b64cmd(script: string): string {
+  const b64 = Buffer.from(script).toString('base64')
+  return `bun -e "$(echo ${b64} | base64 -d)"`
+}
+
 // ─── Seed definitions ─────────────────────────────────────────────────────────
 
 interface SeedProject {
@@ -146,7 +154,7 @@ const SEED_TASKS: SeedTask[] = [
     kind: 'recurring',
     cron: '0 3 * * *',    // 每天 03:00
     executorKind: 'script',
-    executorConfig: { command: `bun -e '${SCRIPT_CLEAN_SPOOL.replace(/'/g, "\\'")}'` },
+    executorConfig: { command: b64cmd(SCRIPT_CLEAN_SPOOL) },
   },
   {
     id: TASK_CLEAN_OPS,
@@ -157,7 +165,7 @@ const SEED_TASKS: SeedTask[] = [
     kind: 'recurring',
     cron: '30 3 * * 0',   // 每周日 03:30
     executorKind: 'script',
-    executorConfig: { command: `bun -e '${SCRIPT_CLEAN_OPS.replace(/'/g, "\\'")}'` },
+    executorConfig: { command: b64cmd(SCRIPT_CLEAN_OPS) },
   },
   {
     id: TASK_WAL_CHECKPOINT,
@@ -168,7 +176,7 @@ const SEED_TASKS: SeedTask[] = [
     kind: 'recurring',
     cron: '0 4 * * *',    // 每天 04:00
     executorKind: 'script',
-    executorConfig: { command: `bun -e '${SCRIPT_WAL_CHECKPOINT.replace(/'/g, "\\'")}'` },
+    executorConfig: { command: b64cmd(SCRIPT_WAL_CHECKPOINT) },
   },
 
   // ── Default project daily task ─────────────────────────────────────────────
