@@ -57,9 +57,20 @@ export function TaskRow({ task, blockedByTasks, onSelect, onRefresh, isSelected,
           />
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+          {/* Assignee tag */}
           <span className={[
-            'text-sm truncate block',
+            'text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0',
+            task.assignee === 'ai'
+              ? 'bg-blue-100 text-blue-600'
+              : 'bg-orange-100 text-orange-600',
+          ].join(' ')}>
+            {task.assignee === 'ai' ? 'AI' : '人'}
+          </span>
+
+          {/* Title */}
+          <span className={[
+            'text-sm truncate',
             isDone ? 'line-through text-gray-400' : '',
             isRunning ? 'text-blue-700 font-medium' : '',
             isHumanPending ? 'text-gray-900 font-medium' : '',
@@ -67,17 +78,13 @@ export function TaskRow({ task, blockedByTasks, onSelect, onRefresh, isSelected,
           ].join(' ')}>
             {task.title}
           </span>
-          <div className="flex items-center gap-1.5">
-            {task.assignee === 'ai' && (
-              <span className="text-xs text-gray-400">AI</span>
-            )}
-            {isRunning && (
-              <span className="flex items-center gap-1 text-xs text-blue-500">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block" />
-                执行中
-              </span>
-            )}
-          </div>
+
+          {/* Running pulse */}
+          {isRunning && (
+            <span className="flex items-center gap-1 text-xs text-blue-500 flex-shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block" />
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
