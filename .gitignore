@@ -4,3 +4,5 @@ dist/
 *.sqlite
 .env
 .gstack/
+# compiled binary
+/conductor
