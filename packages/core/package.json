@@ -5,6 +5,13 @@
   "bin": {
     "conductor": "./src/cli.ts"
   },
+  "scripts": {
+    "test": "bun test/run-all.ts",
+    "test:models": "bun test/models.test.ts",
+    "test:executor": "bun test/executor.test.ts",
+    "test:http": "bun test/http.test.ts",
+    "test:cli": "bun test-cli.ts"
+  },
   "dependencies": {
     "@conductor/types": "workspace:*",
     "hono": "^4.0.0",

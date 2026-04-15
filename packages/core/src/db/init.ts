@@ -4,9 +4,13 @@ import { mkdirSync } from 'fs'
 import { join } from 'path'
 
 const CONDUCTOR_DIR = join(homedir(), '.conductor')
-const DB_PATH = join(CONDUCTOR_DIR, 'db.sqlite')
+const DB_PATH = process.env.CONDUCTOR_TEST_DB ?? join(CONDUCTOR_DIR, 'db.sqlite')
 
 let _db: Database | null = null
+
+export function resetDb(): void {
+  if (_db) { _db.close(); _db = null }
+}
 
 export function getDb(): Database {
   if (_db) return _db
