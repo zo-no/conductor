@@ -194,6 +194,18 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
               </div>
             )}
 
+            {task.dependsOn && (
+              <div>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">前置任务</label>
+                {(() => {
+                  const dep = allTasks.find(t => t.id === task.dependsOn)
+                  return dep
+                    ? <p className="mt-1 text-sm text-blue-600">{dep.title}</p>
+                    : <p className="mt-1 text-xs text-gray-400 font-mono">{task.dependsOn}</p>
+                })()}
+              </div>
+            )}
+
             {task.waitingInstructions && (
               <div>
                 <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">完成说明</label>

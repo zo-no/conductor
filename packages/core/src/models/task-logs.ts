@@ -3,7 +3,7 @@ import type { TaskLog } from '@conductor/types'
 import { getDb } from '../db/init'
 
 const MAX_OUTPUT_BYTES = 64 * 1024 // 64KB
-const MAX_LOGS_PER_TASK = 50
+const MAX_LOGS_PER_TASK = 200
 
 function newId(): string {
   return 'log_' + randomBytes(6).toString('hex')

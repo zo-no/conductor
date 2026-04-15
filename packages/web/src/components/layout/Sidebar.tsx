@@ -9,6 +9,7 @@ interface Props {
   onSelect: (projectId: string) => void
   onNewProject: () => void
   onSettings: (project: Project) => void
+  onSystemPrompt: () => void
 }
 
 const GearIcon = () => (
@@ -20,7 +21,7 @@ const GearIcon = () => (
 
 export function Sidebar({
   projects, selectedProjectId, tasks, collapsed,
-  onToggleCollapse, onSelect, onNewProject, onSettings,
+  onToggleCollapse, onSelect, onNewProject, onSettings, onSystemPrompt,
 }: Props) {
   // Count pending human tasks per project
   const pendingByProject = new Map<string, number>()
@@ -150,28 +151,40 @@ export function Sidebar({
         )}
       </nav>
 
-      {/* New project button */}
-      <div className={['border-t border-gray-100', collapsed ? 'p-1.5' : 'p-3'].join(' ')}>
+      {/* Bottom actions */}
+      <div className={['border-t border-gray-100 space-y-0.5', collapsed ? 'p-1.5' : 'p-3'].join(' ')}>
         {collapsed ? (
-          <button
-            onClick={onNewProject}
-            title="新建项目"
-            className="w-full h-8 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-white rounded-md"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
+          <>
+            <button onClick={onNewProject} title="新建项目"
+              className="w-full h-8 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-white rounded-md">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+            <button onClick={onSystemPrompt} title="系统 Prompt"
+              className="w-full h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-white rounded-md">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
+          </>
         ) : (
-          <button
-            onClick={onNewProject}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-800 hover:bg-white rounded-md"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            新建项目
-          </button>
+          <>
+            <button onClick={onNewProject}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-800 hover:bg-white rounded-md">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              新建项目
+            </button>
+            <button onClick={onSystemPrompt}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:text-gray-700 hover:bg-white rounded-md">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              系统 Prompt
+            </button>
+          </>
         )}
       </div>
     </aside>

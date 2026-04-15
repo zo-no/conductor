@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { initDb } from './db/init'
 import { reconcile, startScheduler } from './services/scheduler'
+import { bootstrap } from './services/bootstrap'
 import projectsRouter from './controllers/http/projects'
 import tasksRouter from './controllers/http/tasks'
 import promptsRouter from './controllers/http/prompts'
@@ -21,6 +22,7 @@ app.get('/health', (c) => c.json({ ok: true, pid: process.pid }))
 
 // Boot sequence
 initDb()
+bootstrap()
 reconcile()
 startScheduler()
 

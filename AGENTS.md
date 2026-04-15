@@ -8,7 +8,21 @@
 
 Conductor 是一个**本地优先的任务调度引擎**，给人类和 AI 一起使用的 todolist + agent 调度器。核心对象是 **Project**（任务容器）和 **Task**（独立可执行单元，human 或 ai 执行，支持一次性/定时/周期触发）。
 
-架构、数据模型、执行逻辑、CLI/API、UI 设计详见 [docs/](docs/)。
+详见 [docs/](docs/)：架构 → `architecture.md`，执行模型 → `execution-model.md`，CLI/API → `cli-api.md`，外部接入 → `integration.md`。
+
+---
+
+## AI Agent 使用 Conductor CLI
+
+**不要凭记忆猜命令。** 每次需要操作 Conductor 时，先运行：
+
+```bash
+conductor help-ai
+```
+
+输出是一个 JSON 速查表，按**意图**列出对应命令（例如 `"create ai task (recurring)"` → 完整命令）。找到你需要的那一条，复制使用。不认识的参数再用 `conductor <command> --help` 查详细说明。
+
+**不需要一次读完所有文档**，`help-ai` 覆盖 90% 的场景。只有遇到复杂流程（如 human 卡点、任务依赖链）时才参考 `docs/integration.md`。
 
 ---
 

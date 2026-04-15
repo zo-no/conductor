@@ -2,6 +2,8 @@ import { randomBytes } from 'crypto'
 import type { Project } from '@conductor/types'
 import { getDb } from '../db/init'
 
+export const DEFAULT_PROJECT_ID = 'proj_default'
+
 function newId(): string {
   return 'proj_' + randomBytes(6).toString('hex')
 }
@@ -16,7 +18,6 @@ function rowToProject(row: Record<string, unknown>): Project {
     name: row.name as string,
     goal: (row.goal as string) ?? undefined,
     workDir: (row.work_dir as string) ?? undefined,
-    systemPrompt: (row.system_prompt as string) ?? undefined,
     archived: row.archived === 1,
     archivedAt: (row.archived_at as string) ?? undefined,
     createdAt: row.created_at as string,
@@ -58,7 +59,6 @@ export interface UpdateProjectInput {
   name?: string
   goal?: string
   workDir?: string
-  systemPrompt?: string
 }
 
 export function updateProject(id: string, input: UpdateProjectInput): Project | null {
@@ -68,14 +68,11 @@ export function updateProject(id: string, input: UpdateProjectInput): Project | 
 
   const ts = now()
   db.run(
-    `UPDATE projects SET
-       name = ?, goal = ?, work_dir = ?, system_prompt = ?, updated_at = ?
-     WHERE id = ?`,
+    `UPDATE projects SET name = ?, goal = ?, work_dir = ?, updated_at = ? WHERE id = ?`,
     [
       input.name ?? project.name,
       input.goal !== undefined ? input.goal : (project.goal ?? null),
       input.workDir !== undefined ? input.workDir : (project.workDir ?? null),
-      input.systemPrompt !== undefined ? input.systemPrompt : (project.systemPrompt ?? null),
       ts,
       id,
     ],
@@ -103,6 +100,10 @@ export function unarchiveProject(id: string): Project | null {
   )
   if (result.changes === 0) return null
   return getProject(id)!
+}
+
+export function isDefaultProject(id: string): boolean {
+  return id === DEFAULT_PROJECT_ID
 }
 
 export function deleteProject(id: string): boolean {

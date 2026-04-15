@@ -63,6 +63,7 @@ export interface ExecutionResult {
   success: boolean
   output: string
   error?: string
+  sessionId?: string
 }
 
 // ─── Script executor ──────────────────────────────────────────────────────────
@@ -113,54 +114,116 @@ export function executeScript(task: Task): Promise<ExecutionResult> {
 
 // ─── AI prompt executor ───────────────────────────────────────────────────────
 
+// Extract session ID from claude stream-json output
+function extractClaudeSessionId(line: string): string | undefined {
+  try {
+    const obj = JSON.parse(line)
+    // claude emits session_id in the 'system' event
+    if (obj.type === 'system' && obj.session_id) return obj.session_id as string
+  } catch {}
+  return undefined
+}
+
+// Extract session ID from codex --json output
+function extractCodexSessionId(line: string): string | undefined {
+  try {
+    const obj = JSON.parse(line)
+    if (obj.session_id) return obj.session_id as string
+    if (obj.type === 'session' && obj.id) return obj.id as string
+  } catch {}
+  return undefined
+}
+
+function buildClaudeArgs(task: Task, userPrompt: string, systemAppend: string | null): string[] {
+  const executor = task.executor as AiPromptExecutor
+  const continueSession = task.executorOptions?.continueSession ?? false
+  const sessionId = task.lastSessionId
+
+  const args: string[] = []
+
+  if (continueSession && sessionId) {
+    args.push('--resume', sessionId)
+  }
+
+  args.push('-p', userPrompt, '--output-format', 'stream-json', '--verbose')
+  if (systemAppend) args.push('--append-system-prompt', systemAppend)
+  if (executor.model) args.push('--model', executor.model)
+
+  return args
+}
+
+function buildCodexArgs(task: Task, userPrompt: string): string[] {
+  const executor = task.executor as AiPromptExecutor
+  const continueSession = task.executorOptions?.continueSession ?? false
+  const sessionId = task.lastSessionId
+
+  const args: string[] = ['exec']
+
+  if (continueSession && sessionId) {
+    // codex exec resume <sessionId> <prompt>
+    return ['exec', 'resume', sessionId, userPrompt, '--json', '--full-auto']
+  }
+
+  args.push(userPrompt, '--json', '--full-auto')
+  if (executor.model) args.push('--model', executor.model)
+
+  return args
+}
+
 export function executeAiPrompt(
   task: Task,
   triggeredBy: 'manual' | 'scheduler' | 'api' | 'cli' = 'manual',
 ): Promise<ExecutionResult> {
   const executor = task.executor as AiPromptExecutor
+  const agent = executor.agent ?? 'claude'
   const project = getProject(task.projectId)
-  const cwd = resolveCwd(executor.workDir ?? project?.workDir)
+  const cwd = resolveCwd(project?.workDir)
   const userPrompt = buildUserPrompt(task)
   const systemAppend = buildSystemPromptAppend(task)
   const timeout = 300_000 // 5 min
 
-  const args = [
-    '-p', userPrompt,
-    '--output-format', 'stream-json',
-    '--verbose',
-  ]
-  if (systemAppend) args.push('--append-system-prompt', systemAppend)
-  if (executor.model) args.push('--model', executor.model)
+  const bin = agent === 'codex' ? 'codex' : 'claude'
+  const args = agent === 'codex'
+    ? buildCodexArgs(task, userPrompt)
+    : buildClaudeArgs(task, userPrompt, systemAppend)
 
-  // Create run record
   const run = createRun(task.id, triggeredBy)
 
   return new Promise((resolve) => {
-    const proc = spawn('claude', args, {
+    const proc = spawn(bin, args, {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     let lastAssistantText = ''
+    let sessionId: string | undefined
     let timedOut = false
 
     const { createInterface } = require('readline')
     const rl = createInterface({ input: proc.stdout })
     rl.on('line', (line: string) => {
-      // Persist every line to spool
       appendSpoolLine(run.id, line)
-      // Emit SSE for real-time frontend streaming
       emit({ type: 'run_line', data: { taskId: task.id, runId: run.id, line, ts: new Date().toISOString() } })
 
+      // Extract session ID
+      if (!sessionId) {
+        sessionId = agent === 'codex'
+          ? extractCodexSessionId(line)
+          : extractClaudeSessionId(line)
+      }
+
+      // Extract last assistant text
       try {
         const obj = JSON.parse(line)
-        if (obj.type === 'assistant') {
+        if (agent === 'claude' && obj.type === 'assistant') {
           const content = obj.message?.content
           if (Array.isArray(content)) {
             for (const block of content) {
               if (block.type === 'text') lastAssistantText = block.text
             }
           }
+        } else if (agent === 'codex' && obj.type === 'message' && obj.role === 'assistant') {
+          if (typeof obj.content === 'string') lastAssistantText = obj.content
         }
       } catch {}
     })
@@ -178,16 +241,17 @@ export function executeAiPrompt(
       clearTimeout(timer)
       const output = lastAssistantText
       const stderr = stderrLines.join('')
+
       if (timedOut) {
-        completeRun(run.id, 'failed', 'execution timeout')
+        completeRun(run.id, 'failed', 'execution timeout', sessionId)
         resolve({ success: false, output, error: 'execution timeout' })
       } else if (code === 0) {
-        completeRun(run.id, 'done')
-        resolve({ success: true, output })
+        completeRun(run.id, 'done', undefined, sessionId)
+        resolve({ success: true, output, sessionId })
       } else {
         const err = stderr || `exited with code ${code}`
-        completeRun(run.id, 'failed', err)
-        resolve({ success: false, output, error: err })
+        completeRun(run.id, 'failed', err, sessionId)
+        resolve({ success: false, output, error: err, sessionId })
       }
     })
 

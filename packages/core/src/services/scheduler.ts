@@ -102,7 +102,10 @@ export async function runTask(
     const fresh = getTask(taskId)!
     const nextStatus = fresh.kind === 'recurring' && result.success ? 'pending' : newTaskStatus
 
-    updateTask(taskId, { status: nextStatus })
+    updateTask(taskId, {
+      status: nextStatus,
+      ...(result.sessionId ? { lastSessionId: result.sessionId } : {}),
+    })
     emit({ type: 'task_updated', data: { taskId, projectId: fresh.projectId } })
     createTaskOp({
       taskId,

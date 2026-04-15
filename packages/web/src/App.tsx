@@ -9,16 +9,17 @@ import { Timeline } from './components/tasks/Timeline'
 import { TaskDetail } from './components/tasks/TaskDetail'
 import { TaskForm } from './components/tasks/TaskForm'
 import { ProjectSettings } from './components/projects/ProjectSettings'
+import { SystemPromptDialog } from './components/projects/SystemPromptDialog'
 import { PromptDialog } from './components/ui/Dialog'
 
-type AssigneeTab = 'human' | 'ai'
+type AssigneeTab = 'all' | 'human' | 'ai'
 
 export default function App() {
   const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [assigneeTab, setAssigneeTab] = useState<AssigneeTab>('human')
+  const [assigneeTab, setAssigneeTab] = useState<AssigneeTab>('all')
   const [loading, setLoading] = useState(true)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -27,6 +28,7 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [settingsProject, setSettingsProject] = useState<Project | null>(null)
   const [newProjectPrompt, setNewProjectPrompt] = useState(false)
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false)
 
   // Bulk select
   const [selectMode, setSelectMode] = useState(false)
@@ -186,6 +188,9 @@ export default function App() {
           onDelete={handleProjectDeleted}
         />
       )}
+      {showSystemPrompt && (
+        <SystemPromptDialog onClose={() => setShowSystemPrompt(false)} />
+      )}
     </>
   )
 
@@ -228,6 +233,7 @@ export default function App() {
           onSelect={handleSelectProject}
           onNewProject={handleNewProject}
           onSettings={setSettingsProject}
+          onSystemPrompt={() => setShowSystemPrompt(true)}
         />
 
         {/* Main timeline */}
@@ -428,7 +434,7 @@ function MobileLayout({
 
       {/* Assignee tabs */}
       <div className="flex items-center border-b border-gray-100 flex-shrink-0">
-        {(['human', 'ai'] as const).map(tab => (
+        {(['all', 'human', 'ai'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => onTabChange(tab)}
@@ -438,7 +444,7 @@ function MobileLayout({
                 : 'text-gray-400'
             }`}
           >
-            {tab === 'human' ? '人类' : 'AI'}
+            {{ all: '全部', human: '人类', ai: 'AI' }[tab]}
           </button>
         ))}
       </div>
@@ -447,7 +453,7 @@ function MobileLayout({
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-20" {...swipe}>
         <Timeline
           tasks={tasks}
-          assigneeFilter={assigneeTab}
+          assigneeFilter={assigneeTab === 'all' ? undefined : assigneeTab}
           onSelect={onSelectTask}
           onRefresh={onRefresh}
           selectedTaskId={selectedTaskId}

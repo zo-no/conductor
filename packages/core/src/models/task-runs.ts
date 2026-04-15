@@ -6,6 +6,7 @@ export interface TaskRun {
   taskId: string
   status: 'running' | 'done' | 'failed' | 'cancelled'
   triggeredBy: 'manual' | 'scheduler' | 'api' | 'cli'
+  sessionId?: string
   startedAt: string
   completedAt?: string
   error?: string
@@ -32,6 +33,7 @@ function rowToRun(row: Record<string, unknown>): TaskRun {
     taskId: row.task_id as string,
     status: row.status as TaskRun['status'],
     triggeredBy: row.triggered_by as TaskRun['triggeredBy'],
+    sessionId: (row.session_id as string) ?? undefined,
     startedAt: row.started_at as string,
     completedAt: (row.completed_at as string) ?? undefined,
     error: (row.error as string) ?? undefined,
@@ -49,11 +51,11 @@ export function createRun(taskId: string, triggeredBy: TaskRun['triggeredBy']): 
   return rowToRun(db.query('SELECT * FROM task_runs WHERE id = ?').get(id) as Record<string, unknown>)
 }
 
-export function completeRun(id: string, status: 'done' | 'failed' | 'cancelled', error?: string): void {
+export function completeRun(id: string, status: 'done' | 'failed' | 'cancelled', error?: string, sessionId?: string): void {
   const db = getDb()
   db.run(
-    `UPDATE task_runs SET status = ?, completed_at = ?, error = ? WHERE id = ?`,
-    [status, now(), error ?? null, id],
+    `UPDATE task_runs SET status = ?, completed_at = ?, error = ?, session_id = ? WHERE id = ?`,
+    [status, now(), error ?? null, sessionId ?? null, id],
   )
 }
 

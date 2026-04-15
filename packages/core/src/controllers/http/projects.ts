@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import {
   listProjects, getProject, createProject, updateProject,
-  deleteProject, archiveProject, unarchiveProject,
+  deleteProject, archiveProject, unarchiveProject, isDefaultProject,
 } from '../../models/projects'
 
 const app = new Hono()
@@ -24,20 +24,29 @@ app.get('/:id', (c) => {
 })
 
 app.patch('/:id', async (c) => {
+  const id = c.req.param('id')
   const body = await c.req.json()
-  const project = updateProject(c.req.param('id'), body)
+  // Protect default project name
+  if (isDefaultProject(id) && body.name && body.name !== '日常事务') {
+    return c.json({ error: '默认项目名称不可修改' }, 400)
+  }
+  const project = updateProject(id, body)
   if (!project) return c.json({ error: 'not found' }, 404)
   return c.json(project)
 })
 
 app.delete('/:id', (c) => {
-  const ok = deleteProject(c.req.param('id'))
+  const id = c.req.param('id')
+  if (isDefaultProject(id)) return c.json({ error: '默认项目不可删除' }, 400)
+  const ok = deleteProject(id)
   if (!ok) return c.json({ error: 'not found' }, 404)
   return c.json({ ok: true })
 })
 
 app.post('/:id/archive', (c) => {
-  const project = archiveProject(c.req.param('id'))
+  const id = c.req.param('id')
+  if (isDefaultProject(id)) return c.json({ error: '默认项目不可归档' }, 400)
+  const project = archiveProject(id)
   if (!project) return c.json({ error: 'not found' }, 404)
   return c.json(project)
 })

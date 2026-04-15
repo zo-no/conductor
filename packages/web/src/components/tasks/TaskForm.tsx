@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Task, TaskAssignee, TaskKind, TaskExecutor, ScheduleConfig } from '@conductor/types'
 import { api } from '../../lib/api'
 
@@ -240,6 +240,18 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     task?.executor?.kind === 'http' ? task.executor.method : 'GET'
   )
   const [httpBody, setHttpBody] = useState(task?.executor?.kind === 'http' ? (task.executor.body ?? '') : '')
+  const [httpHeaders, setHttpHeaders] = useState(
+    task?.executor?.kind === 'http' && task.executor.headers
+      ? Object.entries(task.executor.headers).map(([k, v]) => `${k}: ${v}`).join('\n')
+      : ''
+  )
+
+  // dependsOn
+  const [dependsOn, setDependsOn] = useState(task?.dependsOn ?? '')
+  const [availableTasks, setAvailableTasks] = useState<Task[]>([])
+  useEffect(() => {
+    api.tasks.list({ projectId }).then(ts => setAvailableTasks(ts.filter(t => t.id !== task?.id)))
+  }, [projectId, task?.id])
 
   // Executor options
   const [continueSession, setContinueSession] = useState(task?.executorOptions?.continueSession ?? false)
@@ -266,7 +278,14 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
   function buildExecutor(): TaskExecutor | undefined {
     if (executorKind === 'ai_prompt') return { kind: 'ai_prompt', prompt, agent, ...(model ? { model } : {}) }
     if (executorKind === 'script') return { kind: 'script', command, ...(workDir ? { workDir } : {}) }
-    if (executorKind === 'http') return { kind: 'http', url: httpUrl, method: httpMethod, ...(httpBody ? { body: httpBody } : {}) }
+    if (executorKind === 'http') {
+      const headers: Record<string, string> = {}
+      for (const line of httpHeaders.split('\n')) {
+        const idx = line.indexOf(':')
+        if (idx > 0) headers[line.slice(0, idx).trim()] = line.slice(idx + 1).trim()
+      }
+      return { kind: 'http', url: httpUrl, method: httpMethod, ...(httpBody ? { body: httpBody } : {}), ...(Object.keys(headers).length ? { headers } : {}) }
+    }
     return undefined
   }
 
@@ -306,6 +325,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
           executor,
           scheduleConfig,
           executorOptions,
+          dependsOn: dependsOn || undefined,
         } as any)
       } else {
         await api.tasks.create({
@@ -317,6 +337,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
           executor,
           scheduleConfig,
           executorOptions,
+          dependsOn: dependsOn || undefined,
         })
       }
       onDone()
@@ -522,6 +543,13 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                         className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none font-mono text-xs"
                       />
                     )}
+                    <textarea
+                      value={httpHeaders}
+                      onChange={e => setHttpHeaders(e.target.value)}
+                      placeholder={'请求头（每行一个）\nAuthorization: Bearer token\nContent-Type: application/json'}
+                      rows={2}
+                      className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none font-mono text-xs"
+                    />
                   </div>
                 )}
 
@@ -550,6 +578,23 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                     </label>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* dependsOn */}
+            {availableTasks.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">前置任务（完成后才触发）</label>
+                <select
+                  value={dependsOn}
+                  onChange={e => setDependsOn(e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                >
+                  <option value="">无</option>
+                  {availableTasks.map(t => (
+                    <option key={t.id} value={t.id}>{t.title}</option>
+                  ))}
+                </select>
               </div>
             )}
 

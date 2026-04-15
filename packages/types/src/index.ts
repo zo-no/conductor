@@ -7,9 +7,7 @@ export interface Project {
 
   name: string
   goal?: string        // 可选目标描述
-
-  workDir?: string     // AI 执行任务时的工作目录（用户可写入 customVars 使用）
-  systemPrompt?: string
+  workDir?: string     // AI 执行任务时的工作目录
 
   archived: boolean
   archivedAt?: string
@@ -58,7 +56,6 @@ export interface Task {
 
   enabled: boolean
   createdBy: 'human' | 'ai'
-
   lastSessionId?: string   // 最近一次执行的 agent session ID，用于 continueSession
 }
 

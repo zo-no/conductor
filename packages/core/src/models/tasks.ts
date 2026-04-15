@@ -39,6 +39,7 @@ function rowToTask(row: Record<string, unknown>): Task {
     completionOutput: (row.completion_output as string) ?? undefined,
     enabled: row.enabled === 1,
     createdBy: row.created_by as 'human' | 'ai',
+    lastSessionId: (row.last_session_id as string) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   }
@@ -144,6 +145,7 @@ export interface UpdateTaskInput {
   enabled?: boolean
   completionOutput?: string
   blockedByTaskId?: string | null
+  lastSessionId?: string | null
 }
 
 export function updateTask(id: string, input: UpdateTaskInput): Task | null {
@@ -159,8 +161,9 @@ export function updateTask(id: string, input: UpdateTaskInput): Task | null {
   if (input.description !== undefined)     { fields.push('description = ?');       params.push(input.description) }
   if (input.status !== undefined)          { fields.push('status = ?');            params.push(input.status) }
   if (input.enabled !== undefined)         { fields.push('enabled = ?');           params.push(input.enabled ? 1 : 0) }
-  if (input.completionOutput !== undefined){ fields.push('completion_output = ?'); params.push(input.completionOutput) }
-  if ('blockedByTaskId' in input)          { fields.push('blocked_by_task_id = ?');params.push(input.blockedByTaskId ?? null) }
+  if (input.completionOutput !== undefined){ fields.push('completion_output = ?');  params.push(input.completionOutput) }
+  if ('blockedByTaskId' in input)          { fields.push('blocked_by_task_id = ?'); params.push(input.blockedByTaskId ?? null) }
+  if ('lastSessionId' in input)            { fields.push('last_session_id = ?');    params.push(input.lastSessionId ?? null) }
 
   if (input.scheduleConfig !== undefined) {
     fields.push('schedule_config = ?')
