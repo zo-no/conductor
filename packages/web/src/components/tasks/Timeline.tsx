@@ -9,9 +9,13 @@ interface Props {
   onSelect: (task: Task) => void
   onRefresh: () => void
   selectedTaskId?: string
+  // bulk select
+  selectMode?: boolean
+  selectedIds?: Set<string>
+  onToggleSelect?: (taskId: string) => void
 }
 
-export function Timeline({ tasks, assigneeFilter, onSelect, onRefresh, selectedTaskId }: Props) {
+export function Timeline({ tasks, assigneeFilter, onSelect, onRefresh, selectedTaskId, selectMode, selectedIds, onToggleSelect }: Props) {
   const [recurringExpanded, setRecurringExpanded] = useState(false)
   const [doneExpanded, setDoneExpanded] = useState(false)
 
@@ -68,6 +72,9 @@ export function Timeline({ tasks, assigneeFilter, onSelect, onRefresh, selectedT
                     onSelect={onSelect}
                     onRefresh={onRefresh}
                     isSelected={selectedTaskId === task.id}
+                    selectMode={selectMode}
+                    isChecked={selectedIds?.has(task.id) ?? false}
+                    onToggleSelect={onToggleSelect}
                   />
                 ))}
               </div>
@@ -127,6 +134,9 @@ export function Timeline({ tasks, assigneeFilter, onSelect, onRefresh, selectedT
                     onSelect={onSelect}
                     onRefresh={onRefresh}
                     isSelected={selectedTaskId === task.id}
+                    selectMode={selectMode}
+                    isChecked={selectedIds?.has(task.id) ?? false}
+                    onToggleSelect={onToggleSelect}
                   />
                 ))}
               </div>

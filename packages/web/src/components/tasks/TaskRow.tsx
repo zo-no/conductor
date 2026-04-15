@@ -10,9 +10,12 @@ interface Props {
   onRefresh: () => void
   isSelected: boolean
   indent?: boolean
+  selectMode?: boolean
+  isChecked?: boolean
+  onToggleSelect?: (taskId: string) => void
 }
 
-export function TaskRow({ task, blockedByTasks, onSelect, onRefresh, isSelected, indent }: Props) {
+export function TaskRow({ task, blockedByTasks, onSelect, onRefresh, isSelected, indent, selectMode, isChecked, onToggleSelect }: Props) {
   const isDone = task.status === 'done' || task.status === 'cancelled'
   const isHumanPending = task.assignee === 'human' && task.status === 'pending'
   const timeDisplay = getTaskTimeDisplay(task)
@@ -27,11 +30,22 @@ export function TaskRow({ task, blockedByTasks, onSelect, onRefresh, isSelected,
       <div
         className={[
           'flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer group',
-          isSelected ? 'bg-blue-50' : 'hover:bg-gray-50',
+          isSelected && !selectMode ? 'bg-blue-50' : '',
+          selectMode && isChecked ? 'bg-blue-50' : '',
+          !isSelected && !isChecked ? 'hover:bg-gray-50' : '',
           isDone ? 'opacity-50' : '',
         ].join(' ')}
-        onClick={() => onSelect(task)}
+        onClick={() => selectMode ? onToggleSelect?.(task.id) : onSelect(task)}
       >
+        {selectMode && (
+          <input
+            type="checkbox"
+            checked={isChecked ?? false}
+            onChange={() => onToggleSelect?.(task.id)}
+            onClick={e => e.stopPropagation()}
+            className="w-4 h-4 rounded border-gray-300 text-blue-500 flex-shrink-0"
+          />
+        )}
         <div onClick={e => e.stopPropagation()}>
           <TaskStatusIcon
             task={task}

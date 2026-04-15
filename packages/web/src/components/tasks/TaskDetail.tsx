@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Task, TaskOp } from '@conductor/types'
+import type { Task, TaskLog, TaskOp } from '@conductor/types'
 import type { TaskRun } from '../../lib/api'
 import { api } from '../../lib/api'
 import { RunViewer } from './RunViewer'
@@ -18,12 +18,14 @@ interface Props {
 export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEdit, onDeleted }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [ops, setOps] = useState<TaskOp[]>([])
+  const [logs, setLogs] = useState<TaskLog[]>([])
   const [runs, setRuns] = useState<TaskRun[]>([])
   const [selectedRun, setSelectedRun] = useState<TaskRun | null>(null)
-  const [tab, setTab] = useState<'info' | 'runs' | 'ops'>('info')
+  const [tab, setTab] = useState<'info' | 'runs' | 'logs' | 'ops'>('info')
 
   useEffect(() => {
     api.tasks.ops(task.id).then(setOps).catch(() => {})
+    api.tasks.logs(task.id).then(setLogs).catch(() => {})
     if (task.assignee === 'ai') {
       api.tasks.runs(task.id).then(runs => {
         setRuns(runs)
@@ -112,8 +114,8 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
       {/* Tabs */}
       <div className="flex border-b border-gray-100">
         {(task.assignee === 'ai'
-          ? ['info', 'runs', 'ops'] as const
-          : ['info', 'ops'] as const
+          ? ['info', 'runs', 'logs', 'ops'] as const
+          : ['info', 'logs', 'ops'] as const
         ).map(t => (
           <button
             key={t}
@@ -122,7 +124,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
               tab === t ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600'
             }`}
           >
-            {{ info: '详情', runs: '执行记录', ops: '操作记录' }[t]}
+            {{ info: '详情', runs: '执行', logs: '日志', ops: '记录' }[t]}
           </button>
         ))}
       </div>
@@ -258,6 +260,42 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
                 <p className="mt-1 text-sm text-gray-700 bg-gray-50 rounded p-2 whitespace-pre-wrap">{task.completionOutput}</p>
               </div>
             )}
+          </div>
+        )}
+
+        {tab === 'logs' && (
+          <div className="p-4 space-y-2">
+            {logs.length === 0 && <p className="text-sm text-gray-400">暂无执行日志</p>}
+            {logs.map(log => (
+              <div key={log.id} className="text-xs border border-gray-100 rounded-lg p-2.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className={`font-medium ${
+                    log.status === 'success' ? 'text-green-600' :
+                    log.status === 'failed' ? 'text-red-500' :
+                    log.status === 'skipped' ? 'text-orange-400' : 'text-gray-400'
+                  }`}>
+                    {log.status === 'success' ? '✓ 成功' :
+                     log.status === 'failed' ? '✗ 失败' :
+                     log.status === 'skipped' ? '跳过' : '取消'}
+                  </span>
+                  <div className="text-gray-400 text-right">
+                    <span>{new Date(log.startedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    {log.completedAt && (
+                      <span className="ml-1 text-gray-300">
+                        {Math.round((new Date(log.completedAt).getTime() - new Date(log.startedAt).getTime()) / 1000)}s
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {log.skipReason && <p className="text-gray-400">{log.skipReason}</p>}
+                {log.error && <p className="text-red-500">{log.error}</p>}
+                {log.output && (
+                  <pre className="text-gray-600 bg-gray-50 rounded p-1.5 overflow-x-auto max-h-28 text-xs whitespace-pre-wrap">
+                    {log.output.slice(0, 500)}{log.output.length > 500 ? '…' : ''}
+                  </pre>
+                )}
+              </div>
+            ))}
           </div>
         )}
 

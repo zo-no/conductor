@@ -3,6 +3,7 @@ import type { Project, Task } from '@conductor/types'
 import { api } from './lib/api'
 import { useSSE } from './hooks/useSSE'
 import { useWindowWidth } from './hooks/useWindowWidth'
+import { useSwipe } from './hooks/useSwipe'
 import { Sidebar } from './components/layout/Sidebar'
 import { Timeline } from './components/tasks/Timeline'
 import { TaskDetail } from './components/tasks/TaskDetail'
@@ -26,6 +27,10 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [settingsProject, setSettingsProject] = useState<Project | null>(null)
   const [newProjectPrompt, setNewProjectPrompt] = useState(false)
+
+  // Bulk select
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   // Responsive — reactive to window resize
   const windowWidth = useWindowWidth()
@@ -103,6 +108,27 @@ export default function App() {
   function handleTaskDeleted() {
     setSelectedTask(null)
     loadTasks()
+  }
+
+  function handleToggleSelect(taskId: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(taskId) ? next.delete(taskId) : next.add(taskId)
+      return next
+    })
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return
+    await Promise.all([...selectedIds].map(id => api.tasks.delete(id)))
+    setSelectedIds(new Set())
+    setSelectMode(false)
+    loadTasks()
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false)
+    setSelectedIds(new Set())
   }
 
   function handleProjectSettingsDone(updated?: Project) {
@@ -212,22 +238,57 @@ export default function App() {
                 <h2 className="text-sm font-semibold text-gray-800 truncate">
                   {projects.find(p => p.id === selectedProjectId)?.name ?? ''}
                 </h2>
-                <button
-                  onClick={handleNewTask}
-                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors flex-shrink-0 ml-4"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                  新建任务
-                </button>
+                <div className="flex items-center gap-1 ml-4 flex-shrink-0">
+                  {selectMode ? (
+                    <>
+                      {selectedIds.size > 0 && (
+                        <button
+                          onClick={handleBulkDelete}
+                          className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 px-2.5 py-1.5 rounded-md hover:bg-red-50 transition-colors"
+                        >
+                          删除 {selectedIds.size} 项
+                        </button>
+                      )}
+                      <button
+                        onClick={exitSelectMode}
+                        className="text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                      >
+                        取消
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setSelectMode(true)}
+                        className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                        title="批量管理"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={handleNewTask}
+                        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        新建任务
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="px-6 py-4 max-w-2xl">
                 <Timeline
                   tasks={projectTasks}
                   onSelect={setSelectedTask}
                   onRefresh={loadTasks}
-                  selectedTaskId={selectedTask?.id}
+                  selectedTaskId={selectMode ? undefined : selectedTask?.id}
+                  selectMode={selectMode}
+                  selectedIds={selectedIds}
+                  onToggleSelect={handleToggleSelect}
                 />
               </div>
             </>
@@ -283,6 +344,21 @@ function MobileLayout({
   onEditTask, onDeletedTask, onRefresh, onNewProject, onNewTask, onSettings, onTabChange,
 }: MobileProps) {
   const selectedTaskId = selectedTask?.id
+
+  // Swipe left/right to switch projects
+  const activeProjects = projects.filter(p => !p.archived)
+  const currentIdx = activeProjects.findIndex(p => p.id === selectedProjectId)
+
+  const swipe = useSwipe(
+    () => {
+      // swipe left → next project
+      if (currentIdx < activeProjects.length - 1) onSelectProject(activeProjects[currentIdx + 1].id)
+    },
+    () => {
+      // swipe right → prev project
+      if (currentIdx > 0) onSelectProject(activeProjects[currentIdx - 1].id)
+    }
+  )
 
   // Full screen task detail
   if (selectedTask && selectedProjectId) {
@@ -367,8 +443,8 @@ function MobileLayout({
         ))}
       </div>
 
-      {/* Timeline + FAB */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 pb-20">
+      {/* Timeline + FAB — swipe to switch project */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 pb-20" {...swipe}>
         <Timeline
           tasks={tasks}
           assigneeFilter={assigneeTab}
