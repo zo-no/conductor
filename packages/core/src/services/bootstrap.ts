@@ -2,34 +2,38 @@
  * bootstrap.ts
  *
  * Runs once on daemon startup (after initDb).
- * Ensures the built-in "Conductor" system project and its maintenance tasks exist.
+ * Ensures built-in projects and their seed tasks exist.
  * All operations are idempotent — safe to call on every restart.
+ *
+ * Two built-in projects:
+ *   proj_conductor — system maintenance (cleanup, WAL checkpoint)
+ *   proj_default   — user's default daily workspace (每日工作梳理)
  */
 
 import { getDb } from '../db/init'
 import { getProject } from '../models/projects'
-import { getTask, createTask, updateTask } from '../models/tasks'
+import { getTask } from '../models/tasks'
 
 // ─── Fixed IDs ────────────────────────────────────────────────────────────────
 
-export const SYSTEM_PROJECT_ID = 'proj_conductor'
+export const SYSTEM_PROJECT_ID  = 'proj_conductor'
+export const DEFAULT_PROJECT_ID = 'proj_default'
 
+// System maintenance tasks
 const TASK_CLEAN_SPOOL    = 'task_sys_clean_spool'
 const TASK_CLEAN_OPS      = 'task_sys_clean_ops'
 const TASK_WAL_CHECKPOINT = 'task_sys_wal_checkpoint'
 
-// ─── Retention constants (mirrored in scripts below) ─────────────────────────
+// Default project tasks
+const TASK_DAILY_REVIEW   = 'task_default_daily_review'
 
-// These match what the scripts actually delete — keep in sync if you change them.
+// ─── Retention constants ──────────────────────────────────────────────────────
+
 const SPOOL_MAX_LINES_PER_RUN = 20_000
 const RUNS_MAX_PER_TASK       = 50
 const OPS_RETAIN_DAYS         = 365
 
-// ─── Inline bun scripts ───────────────────────────────────────────────────────
-
-// Each script is self-contained: opens the DB, runs cleanup, prints a summary.
-// They use CONDUCTOR_DB env var (set by the executor) so they work regardless
-// of where bun is invoked from.
+// ─── Inline scripts (self-contained bun -e scripts) ──────────────────────────
 
 const SCRIPT_CLEAN_SPOOL = `
 const { Database } = require('bun:sqlite');
@@ -38,7 +42,6 @@ const dbPath = process.env.CONDUCTOR_DB ?? path.join(process.env.HOME, '.conduct
 const db = new Database(dbPath);
 db.run('PRAGMA foreign_keys = ON');
 
-// 1. Delete spool lines beyond the per-run cap (keep newest ${SPOOL_MAX_LINES_PER_RUN})
 const spoolResult = db.run(\`
   DELETE FROM task_run_spool
   WHERE id NOT IN (
@@ -49,7 +52,6 @@ const spoolResult = db.run(\`
   )
 \`);
 
-// 2. Delete runs beyond per-task cap (keep newest ${RUNS_MAX_PER_TASK}); cascade removes their spool
 const runsResult = db.run(\`
   DELETE FROM task_runs
   WHERE id NOT IN (
@@ -72,7 +74,6 @@ const dbPath = process.env.CONDUCTOR_DB ?? path.join(process.env.HOME, '.conduct
 const db = new Database(dbPath);
 db.run('PRAGMA foreign_keys = ON');
 
-// Delete task_ops older than ${OPS_RETAIN_DAYS} days
 const result = db.run(
   "DELETE FROM task_ops WHERE created_at < datetime('now', '-${OPS_RETAIN_DAYS} days')"
 );
@@ -87,56 +88,109 @@ const path = require('path');
 const dbPath = process.env.CONDUCTOR_DB ?? path.join(process.env.HOME, '.conductor', 'db.sqlite');
 const db = new Database(dbPath);
 
-// Truncate WAL back to near-zero and run optimizer
 db.run('PRAGMA wal_checkpoint(TRUNCATE)');
 db.run('PRAGMA optimize');
 
-// Report DB file size
 const fs = require('fs');
 const stats = fs.statSync(dbPath);
 console.log('db size (bytes):', stats.size);
-
 try {
-  const walStats = fs.statSync(dbPath + '-wal');
-  console.log('wal size (bytes):', walStats.size);
+  console.log('wal size (bytes):', fs.statSync(dbPath + '-wal').size);
 } catch {
   console.log('wal size (bytes): 0');
 }
-
 db.close();
 `.trim()
 
-// ─── Task definitions ─────────────────────────────────────────────────────────
+// ─── Seed definitions ─────────────────────────────────────────────────────────
 
-interface MaintTask {
+interface SeedProject {
   id: string
-  title: string
-  description: string
-  cron: string
-  script: string
+  name: string
+  goal: string
 }
 
-const MAINT_TASKS: MaintTask[] = [
+interface SeedTask {
+  id: string
+  projectId: string
+  title: string
+  description: string
+  assignee: 'ai' | 'human'
+  kind: 'once' | 'scheduled' | 'recurring'
+  cron: string
+  executorKind: 'script' | 'ai_prompt'
+  executorConfig: Record<string, unknown>
+}
+
+const SEED_PROJECTS: SeedProject[] = [
+  {
+    id: SYSTEM_PROJECT_ID,
+    name: 'Conductor',
+    goal: '系统维护项目，负责自动清理运行时数据、优化数据库。由系统管理，不建议删除。',
+  },
+  {
+    id: DEFAULT_PROJECT_ID,
+    name: '日常事务',
+    goal: '默认工作项目，记录日常任务和每日工作梳理。',
+  },
+]
+
+const SEED_TASKS: SeedTask[] = [
+  // ── Conductor system maintenance ──────────────────────────────────────────
   {
     id: TASK_CLEAN_SPOOL,
+    projectId: SYSTEM_PROJECT_ID,
     title: '清理执行输出流水',
     description: `每个 run 保留最新 ${SPOOL_MAX_LINES_PER_RUN.toLocaleString()} 行 spool 数据；每个任务保留最近 ${RUNS_MAX_PER_TASK} 次执行记录，超出部分级联删除。`,
-    cron: '0 3 * * *',   // 每天 03:00
-    script: SCRIPT_CLEAN_SPOOL,
+    assignee: 'ai',
+    kind: 'recurring',
+    cron: '0 3 * * *',    // 每天 03:00
+    executorKind: 'script',
+    executorConfig: { command: `bun -e '${SCRIPT_CLEAN_SPOOL.replace(/'/g, "\\'")}'` },
   },
   {
     id: TASK_CLEAN_OPS,
+    projectId: SYSTEM_PROJECT_ID,
     title: '清理操作审计记录',
     description: `删除 ${OPS_RETAIN_DAYS} 天前的 task_ops 记录，保留近一年的操作历史。`,
-    cron: '30 3 * * 0',  // 每周日 03:30
-    script: SCRIPT_CLEAN_OPS,
+    assignee: 'ai',
+    kind: 'recurring',
+    cron: '30 3 * * 0',   // 每周日 03:30
+    executorKind: 'script',
+    executorConfig: { command: `bun -e '${SCRIPT_CLEAN_OPS.replace(/'/g, "\\'")}'` },
   },
   {
     id: TASK_WAL_CHECKPOINT,
+    projectId: SYSTEM_PROJECT_ID,
     title: 'WAL Checkpoint & 数据库优化',
     description: '执行 SQLite WAL checkpoint（截断模式）并运行 PRAGMA optimize，防止 WAL 文件无限膨胀。',
-    cron: '0 4 * * *',   // 每天 04:00
-    script: SCRIPT_WAL_CHECKPOINT,
+    assignee: 'ai',
+    kind: 'recurring',
+    cron: '0 4 * * *',    // 每天 04:00
+    executorKind: 'script',
+    executorConfig: { command: `bun -e '${SCRIPT_WAL_CHECKPOINT.replace(/'/g, "\\'")}'` },
+  },
+
+  // ── Default project daily task ─────────────────────────────────────────────
+  {
+    id: TASK_DAILY_REVIEW,
+    projectId: DEFAULT_PROJECT_ID,
+    title: '每日工作梳理',
+    description: '每天晚上 9 点自动运行，梳理当天完成的任务、记录进展、整理待办事项。',
+    assignee: 'ai',
+    kind: 'recurring',
+    cron: '0 21 * * *',   // 每天 21:00
+    executorKind: 'ai_prompt',
+    executorConfig: {
+      prompt: `今天是 {date}，请帮我梳理今天的工作情况：
+
+1. 回顾今天完成了哪些事情（可以结合 {taskTitle} 和上下文）
+2. 记录遇到的问题和解决方案
+3. 整理明天需要跟进的事项
+4. 给今天的工作状态打个分（1-10），并简短说明原因
+
+请用简洁的中文输出，结构清晰。`,
+    },
   },
 ]
 
@@ -146,49 +200,42 @@ export function bootstrap(): void {
   const db = getDb()
   const ts = new Date().toISOString()
 
-  // 1. Ensure system project exists
-  const project = getProject(SYSTEM_PROJECT_ID)
-  if (!project) {
-    db.run(
-      `INSERT INTO projects (id, name, goal, archived, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, 0, 'system', ?, ?)`,
-      [
-        SYSTEM_PROJECT_ID,
-        'Conductor',
-        '系统维护项目，负责自动清理运行时数据、优化数据库。',
-        ts,
-        ts,
-      ],
-    )
-    console.log('[bootstrap] created system project')
+  // 1. Ensure all seed projects exist
+  for (const proj of SEED_PROJECTS) {
+    if (!getProject(proj.id)) {
+      db.run(
+        `INSERT INTO projects (id, name, goal, archived, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, 0, 'system', ?, ?)`,
+        [proj.id, proj.name, proj.goal, ts, ts],
+      )
+      console.log(`[bootstrap] created project: ${proj.name}`)
+    }
   }
 
-  // 2. Ensure each maintenance task exists (upsert by fixed id)
-  for (const def of MAINT_TASKS) {
-    const existing = getTask(def.id)
-
-    if (!existing) {
-      // Insert with fixed id directly via SQL (createTask generates a random id)
+  // 2. Ensure all seed tasks exist (never overwrite — user may have customised them)
+  for (const def of SEED_TASKS) {
+    if (!getTask(def.id)) {
       db.run(
         `INSERT INTO tasks (
           id, project_id, title, description,
           assignee, kind, status,
           schedule_config, executor_kind, executor_config,
           enabled, created_by, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, 'ai', 'recurring', 'pending', ?, 'script', ?, 1, 'system', ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, 'recurring', 'pending', ?, ?, ?, 1, 'system', ?, ?)`,
         [
           def.id,
-          SYSTEM_PROJECT_ID,
+          def.projectId,
           def.title,
           def.description,
+          def.assignee,
           JSON.stringify({ kind: 'recurring', cron: def.cron }),
-          JSON.stringify({ command: `bun -e '${def.script.replace(/'/g, "\\'")}'` }),
+          def.executorKind,
+          JSON.stringify(def.executorConfig),
           ts,
           ts,
         ],
       )
-      console.log(`[bootstrap] created maintenance task: ${def.title}`)
+      console.log(`[bootstrap] created task: ${def.title}`)
     }
-    // If task exists, leave it alone — user may have adjusted cron or disabled it
   }
 }

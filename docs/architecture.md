@@ -93,11 +93,11 @@ pending → cancelled  （取消）
 
 ### TaskLog
 
-一次执行尝试的结果：成功/失败/跳过、输出、报错。每个任务保留最近 50 条，任务删除时级联删除。
+一次执行尝试的结果：成功/失败/跳过、输出、报错。每个任务保留最近 200 条，任务删除时级联删除。输出截断至 64KB。
 
 ### TaskOp
 
-任务状态变化和关键操作的审计日志：谁触发、从什么状态到什么状态。**永久保留**，任务删除后仍保留。
+任务状态变化和关键操作的审计日志：谁触发、从什么状态到什么状态。保留最近 365 天（由系统维护任务定期清理）。
 
 `op` 类型：`created` | `triggered` | `status_changed` | `done` | `cancelled` | `review_created` | `unblocked` | `deleted`
 
@@ -108,12 +108,38 @@ pending → cancelled  （取消）
 单机、本地进程、单库。启动顺序：
 
 ```
-initDb → reconcile → startScheduler → startServer
+initDb → bootstrap → reconcile → startScheduler → startServer
 ```
 
-- reconcile：把 running 任务重置为 pending（应对异常退出）
-- startScheduler：注册所有 scheduled/recurring 任务的 cron job
-- startServer：HTTP API 监听 7762 端口
+- `initDb`：建表、执行 schema migration
+- `bootstrap`：幂等初始化内置项目和预置任务（见下方）
+- `reconcile`：把 running 任务重置为 pending（应对异常退出）
+- `startScheduler`：注册所有 scheduled/recurring 任务的 cron job
+- `startServer`：HTTP API 监听 7762 端口
+
+## 内置项目
+
+系统启动时自动创建两个内置项目（`created_by = 'system'`），幂等，用户可见可操作：
+
+### Conductor（`proj_conductor`）
+
+系统维护项目，预置 3 个周期任务，用产品自身的调度机制管理自身的运行时数据：
+
+| 任务 | 执行时间 | 作用 |
+|------|----------|------|
+| 清理执行输出流水 | 每天 03:00 | 每个 run 保留最新 20,000 行 spool；每个 task 保留最近 50 次 run |
+| 清理操作审计记录 | 每周日 03:30 | 删除 365 天前的 task_ops |
+| WAL Checkpoint & 优化 | 每天 04:00 | SQLite WAL 截断 + PRAGMA optimize |
+
+### 日常事务（`proj_default`）
+
+用户的默认工作项目，预置 1 个周期任务：
+
+| 任务 | 执行时间 | 作用 |
+|------|----------|------|
+| 每日工作梳理 | 每天 21:00 | AI 自动梳理当天工作进展、问题、明日待办 |
+
+所有预置任务均可被用户修改（调整 cron、禁用、修改 prompt）。重启不会覆盖用户的修改。
 
 ---
 

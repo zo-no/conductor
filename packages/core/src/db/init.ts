@@ -148,14 +148,4 @@ export function initDb(): void {
   try { db.run(`ALTER TABLE tasks ADD COLUMN last_session_id TEXT`) } catch {}
   try { db.run(`ALTER TABLE projects ADD COLUMN created_by TEXT NOT NULL DEFAULT 'human'`) } catch {}
 
-  // Seed: ensure default user project "日常事务" exists
-  const DEFAULT_PROJECT_ID = 'proj_default'
-  const hasDefault = db.query('SELECT id FROM projects WHERE id = ?').get(DEFAULT_PROJECT_ID)
-  if (!hasDefault) {
-    const ts = new Date().toISOString()
-    db.run(
-      `INSERT INTO projects (id, name, archived, created_by, created_at, updated_at) VALUES (?, '日常事务', 0, 'system', ?, ?)`,
-      [DEFAULT_PROJECT_ID, ts, ts],
-    )
-  }
 }
