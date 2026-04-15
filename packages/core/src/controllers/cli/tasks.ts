@@ -4,7 +4,7 @@ import type {
   ScheduledConfig, RecurringConfig, TaskExecutor, ExecutorOptions,
 } from '@conductor/types'
 import {
-  listTasks, getTask, createTask, updateTask, deleteTask, getBlockedByTask,
+  listTasks, getTask, createTask, updateTask, deleteTask, getBlockedByTask, getDependentTasks,
 } from '../../models/tasks'
 import { getTaskLogs } from '../../models/task-logs'
 import { getTaskOps, createTaskOp } from '../../models/task-ops'
@@ -250,7 +250,7 @@ export function registerTaskCommands(program: Command): void {
       const updated = updateTask(id, { status: 'done', completionOutput: opts.output })
       createTaskOp({ taskId: id, op: 'done', fromStatus: prevStatus, toStatus: 'done', actor: 'human' })
 
-      // Unblock waiting AI tasks
+      // 1. blockedByTaskId: tasks explicitly blocked waiting for this one
       const blocked = getBlockedByTask(id)
       for (const bt of blocked) {
         updateTask(bt.id, { status: 'pending', blockedByTaskId: null, completionOutput: opts.output })
@@ -259,9 +259,22 @@ export function registerTaskCommands(program: Command): void {
           fromStatus: 'blocked', toStatus: 'pending',
           actor: 'human', note: `unblocked by human task ${id}`,
         })
-        // fire-and-forget: trigger unblocked AI task
         void executeTask(bt.id).then((result) => {
           updateTask(bt.id, { status: result.success ? 'done' : 'failed' })
+        })
+      }
+
+      // 2. dependsOn: tasks that declared this task as a prerequisite
+      const dependents = getDependentTasks(id)
+      for (const dt of dependents) {
+        updateTask(dt.id, { completionOutput: opts.output })
+        createTaskOp({
+          taskId: dt.id, op: 'unblocked',
+          fromStatus: 'pending', toStatus: 'pending',
+          actor: 'human', note: `dependency ${id} completed`,
+        })
+        void executeTask(dt.id).then((result) => {
+          updateTask(dt.id, { status: result.success ? 'done' : 'failed' })
         })
       }
 

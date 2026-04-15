@@ -23,6 +23,7 @@ function buildVars(task: Task): Record<string, string> {
     taskDescription: task.description ?? '',
     projectName: project?.name ?? '',
     completionOutput: task.completionOutput ?? '',
+    lastOutput: task.completionOutput ?? '',
     ...(task.executorOptions?.customVars ?? {}),
   }
 }

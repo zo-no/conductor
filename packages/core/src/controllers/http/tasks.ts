@@ -99,8 +99,10 @@ app.post('/:id/done', async (c) => {
   })
   createTaskOp({ taskId: id, op: 'done', fromStatus: prevStatus, toStatus: 'done', actor: 'human' })
 
-  // Unblock AI tasks waiting on this human task
-  const { getBlockedByTask } = await import('../../models/tasks')
+  // Unblock AI tasks waiting on this human task (two mechanisms)
+  const { getBlockedByTask, getDependentTasks } = await import('../../models/tasks')
+
+  // 1. blockedByTaskId: tasks explicitly blocked waiting for this one
   const blocked = getBlockedByTask(id)
   for (const blocked_task of blocked) {
     updateTask(blocked_task.id, {
@@ -117,6 +119,23 @@ app.post('/:id/done', async (c) => {
       note: `unblocked by human task ${id}`,
     })
     void runTask(blocked_task.id, 'api')
+  }
+
+  // 2. dependsOn: tasks that declared this task as a prerequisite
+  const dependents = getDependentTasks(id)
+  for (const dep_task of dependents) {
+    updateTask(dep_task.id, {
+      completionOutput: body.output ?? undefined,
+    })
+    createTaskOp({
+      taskId: dep_task.id,
+      op: 'unblocked',
+      fromStatus: 'pending',
+      toStatus: 'pending',
+      actor: 'human',
+      note: `dependency ${id} completed`,
+    })
+    void runTask(dep_task.id, 'api')
   }
 
   emit({ type: 'task_updated', data: { taskId: id, projectId: task.projectId } })
