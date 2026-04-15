@@ -1,5 +1,7 @@
 import type { Project, Task } from '@conductor/types'
 
+export const ALL_PROJECTS_ID = '__all__'
+
 interface Props {
   projects: Project[]
   selectedProjectId: string | null
@@ -68,8 +70,45 @@ export function Sidebar({
 
       {/* Project list */}
       <nav className="flex-1 overflow-y-auto py-2">
+        {/* All projects entry */}
+        {collapsed ? (
+          <div className="relative flex justify-center py-0.5">
+            <button
+              onClick={() => onSelect(ALL_PROJECTS_ID)}
+              title="全部"
+              className={[
+                'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
+                selectedProjectId === ALL_PROJECTS_ID
+                  ? 'bg-white shadow-sm text-gray-900'
+                  : 'text-gray-400 hover:bg-white/70 hover:text-gray-700',
+              ].join(' ')}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <div className="px-1 mb-1">
+            <button
+              onClick={() => onSelect(ALL_PROJECTS_ID)}
+              className={[
+                'w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left transition-colors',
+                selectedProjectId === ALL_PROJECTS_ID
+                  ? 'bg-white shadow-sm text-gray-900 font-medium'
+                  : 'text-gray-500 hover:bg-white/70 hover:text-gray-700',
+              ].join(' ')}
+            >
+              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+              <span className="text-sm">全部</span>
+            </button>
+          </div>
+        )}
+
         {!collapsed && (
-          <div className="px-3 mb-1">
+          <div className="px-3 mt-2 mb-1">
             <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">我的项目</span>
           </div>
         )}

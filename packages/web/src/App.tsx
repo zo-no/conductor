@@ -4,7 +4,7 @@ import { api } from './lib/api'
 import { useSSE } from './hooks/useSSE'
 import { useWindowWidth } from './hooks/useWindowWidth'
 import { useSwipe } from './hooks/useSwipe'
-import { Sidebar } from './components/layout/Sidebar'
+import { Sidebar, ALL_PROJECTS_ID } from './components/layout/Sidebar'
 import { Timeline } from './components/tasks/Timeline'
 import { TaskDetail } from './components/tasks/TaskDetail'
 import { TaskForm } from './components/tasks/TaskForm'
@@ -57,10 +57,11 @@ export default function App() {
     }).finally(() => setLoading(false))
   }, [loadProjects]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load tasks for selected project
+  // Load tasks — all projects or single project
   const loadTasks = useCallback(() => {
     if (!selectedProjectId) return
-    api.tasks.list({ projectId: selectedProjectId }).then(setTasks)
+    const params = selectedProjectId === ALL_PROJECTS_ID ? {} : { projectId: selectedProjectId }
+    api.tasks.list(params).then(setTasks)
   }, [selectedProjectId])
 
   useEffect(() => { loadTasks() }, [loadTasks])
@@ -259,7 +260,9 @@ export default function App() {
             <>
               <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between z-10">
                 <h2 className="text-sm font-semibold text-gray-800 truncate">
-                  {projects.find(p => p.id === selectedProjectId)?.name ?? ''}
+                  {selectedProjectId === ALL_PROJECTS_ID
+                    ? '全部任务'
+                    : projects.find(p => p.id === selectedProjectId)?.name ?? ''}
                 </h2>
                 <div className="flex items-center gap-1 ml-4 flex-shrink-0">
                   {selectMode ? (
@@ -281,24 +284,28 @@ export default function App() {
                     </>
                   ) : (
                     <>
-                      <button
-                        onClick={() => setSelectMode(true)}
-                        className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                        title="批量管理"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={handleNewTask}
-                        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                        </svg>
-                        新建任务
-                      </button>
+                      {selectedProjectId !== ALL_PROJECTS_ID && (
+                        <button
+                          onClick={() => setSelectMode(true)}
+                          className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                          title="批量管理"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                          </svg>
+                        </button>
+                      )}
+                      {selectedProjectId !== ALL_PROJECTS_ID && (
+                        <button
+                          onClick={handleNewTask}
+                          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          </svg>
+                          新建任务
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -306,6 +313,7 @@ export default function App() {
               <div className="px-6 py-4 max-w-2xl">
                 <Timeline
                   tasks={projectTasks}
+                  projects={selectedProjectId === ALL_PROJECTS_ID ? projects : undefined}
                   onSelect={setSelectedTask}
                   onRefresh={loadTasks}
                   selectedTaskId={selectMode ? undefined : selectedTask?.id}

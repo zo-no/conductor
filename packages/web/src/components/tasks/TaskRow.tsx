@@ -18,6 +18,7 @@ interface Props {
 export function TaskRow({ task, blockedByTasks, onSelect, onRefresh, isSelected, indent, selectMode, isChecked, onToggleSelect }: Props) {
   const isDone = task.status === 'done' || task.status === 'cancelled'
   const isHumanPending = task.assignee === 'human' && task.status === 'pending'
+  const isRunning = task.status === 'running'
   const timeDisplay = getTaskTimeDisplay(task)
 
   async function handleCheck() {
@@ -60,13 +61,23 @@ export function TaskRow({ task, blockedByTasks, onSelect, onRefresh, isSelected,
           <span className={[
             'text-sm truncate block',
             isDone ? 'line-through text-gray-400' : '',
-            isHumanPending ? 'text-gray-900 font-medium' : 'text-gray-700',
+            isRunning ? 'text-blue-700 font-medium' : '',
+            isHumanPending ? 'text-gray-900 font-medium' : '',
+            !isDone && !isRunning && !isHumanPending ? 'text-gray-700' : '',
           ].join(' ')}>
             {task.title}
           </span>
-          {task.assignee === 'ai' && (
-            <span className="text-xs text-gray-400">AI</span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {task.assignee === 'ai' && (
+              <span className="text-xs text-gray-400">AI</span>
+            )}
+            {isRunning && (
+              <span className="flex items-center gap-1 text-xs text-blue-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block" />
+                执行中
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">

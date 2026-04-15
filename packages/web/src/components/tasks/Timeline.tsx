@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import type { Task } from '@conductor/types'
+import type { Project, Task } from '@conductor/types'
 import { groupTasksForTimeline } from '../../lib/timeline'
 import { TaskRow } from './TaskRow'
 
 interface Props {
   tasks: Task[]
+  projects?: Project[]   // when provided, render grouped by project (all-projects view)
   assigneeFilter?: 'human' | 'ai'
   onSelect: (task: Task) => void
   onRefresh: () => void
@@ -15,9 +16,42 @@ interface Props {
   onToggleSelect?: (taskId: string) => void
 }
 
-export function Timeline({ tasks, assigneeFilter, onSelect, onRefresh, selectedTaskId, selectMode, selectedIds, onToggleSelect }: Props) {
+export function Timeline({ tasks, projects, assigneeFilter, onSelect, onRefresh, selectedTaskId, selectMode, selectedIds, onToggleSelect }: Props) {
   const [recurringExpanded, setRecurringExpanded] = useState(false)
   const [doneExpanded, setDoneExpanded] = useState(false)
+
+  // All-projects mode: render one Timeline section per project
+  if (projects) {
+    const activeProjects = projects.filter(p => !p.archived)
+    return (
+      <div className="space-y-8">
+        {activeProjects.map(project => {
+          const projectTasks = tasks.filter(t => t.projectId === project.id)
+          if (projectTasks.length === 0) return null
+          const pendingCount = projectTasks.filter(t => t.status === 'pending' || t.status === 'running' || t.status === 'blocked').length
+          return (
+            <div key={project.id}>
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-700">{project.name}</h3>
+                {pendingCount > 0 && (
+                  <span className="text-xs text-gray-400">{pendingCount} 条待处理</span>
+                )}
+              </div>
+              <Timeline
+                tasks={projectTasks}
+                onSelect={onSelect}
+                onRefresh={onRefresh}
+                selectedTaskId={selectedTaskId}
+                selectMode={selectMode}
+                selectedIds={selectedIds}
+                onToggleSelect={onToggleSelect}
+              />
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
 
   const groups = groupTasksForTimeline(tasks, assigneeFilter)
 
