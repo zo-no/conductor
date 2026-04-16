@@ -99,12 +99,10 @@ function ToggleRow({
 
 type Screen =
   | 'main'
-  | 'schedule-kind'
   | 'scheduled-date'
   | 'scheduled-time'
   | 'recurring-preset'
   | 'recurring-time'
-  | 'executor-kind'
   | 'prompt'
   | 'script'
   | 'http'
@@ -314,14 +312,6 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
 
   // ── Derived display values ───────────────────────────────────────────────
 
-  function executorDisplay(): string {
-    if (executorKind === 'none') return t('executorNone')
-    if (executorKind === 'ai_prompt') return agent === 'claude' ? t('agentClaude') : t('agentCodex')
-    if (executorKind === 'script') return command ? command.slice(0, 20) + (command.length > 20 ? '…' : '') : t('executorScript')
-    if (executorKind === 'http') return httpUrl ? `${httpMethod} ${httpUrl.slice(0, 20)}` : t('executorHTTP')
-    return ''
-  }
-
   // ── Build payload ────────────────────────────────────────────────────────
 
   function buildScheduledAt(): string {
@@ -417,37 +407,6 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
   // ── Screen renderer ──────────────────────────────────────────────────────
 
   function renderScreen() {
-    if (screen === 'schedule-kind') {
-      return (
-        <>
-          <SheetHeader title={t('triggerLabel')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
-          <div className="overflow-y-auto flex-1">
-            <CardSection>
-              {(['none', 'scheduled', 'recurring'] as ScheduleKind[]).map((k, i, arr) => (
-                <div key={k}>
-                  <button
-                    type="button"
-                    className="flex items-center gap-3 px-4 py-3.5 w-full text-left active:bg-gray-50"
-                    onClick={() => { setScheduleKind(k); setScreen('main') }}
-                  >
-                    <span className="flex-1 text-sm text-gray-700">
-                      {{ none: t('triggerManual'), scheduled: t('triggerScheduled'), recurring: t('triggerRecurring') }[k]}
-                    </span>
-                    {scheduleKind === k && (
-                      <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                  {i < arr.length - 1 && <RowDivider />}
-                </div>
-              ))}
-            </CardSection>
-          </div>
-        </>
-      )
-    }
-
     if (screen === 'scheduled-date') {
       return (
         <>
@@ -541,43 +500,6 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                 setCron(parts.join(' '))
               }
             }} />
-          </div>
-        </>
-      )
-    }
-
-    if (screen === 'executor-kind') {
-      return (
-        <>
-          <SheetHeader title={t('executorLabel')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
-          <div className="overflow-y-auto flex-1">
-            <CardSection>
-              {([
-                { value: 'none' as ExecutorKind, label: t('executorNone'), desc: t('triggerManualDesc') },
-                { value: 'ai_prompt' as ExecutorKind, label: t('executorAIPrompt'), desc: t('assigneeAIDesc') },
-                { value: 'script' as ExecutorKind, label: t('executorScript'), desc: t('commandPlaceholder') },
-                { value: 'http' as ExecutorKind, label: t('executorHTTP'), desc: t('urlRequired') },
-              ]).map((opt, i, arr) => (
-                <div key={opt.value}>
-                  <button
-                    type="button"
-                    className="flex items-center gap-3 px-4 py-3.5 w-full text-left active:bg-gray-50"
-                    onClick={() => { setExecutorKind(opt.value); setScreen('main') }}
-                  >
-                    <div className="flex-1">
-                      <div className="text-sm text-gray-700">{opt.label}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">{opt.desc}</div>
-                    </div>
-                    {executorKind === opt.value && (
-                      <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                  {i < arr.length - 1 && <RowDivider />}
-                </div>
-              ))}
-            </CardSection>
           </div>
         </>
       )
@@ -732,12 +654,19 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
 
           {/* Schedule */}
           <CardSection>
-            <Row
-              icon={<CalIcon />}
-              label={t('triggerLabel')}
-              value={{ none: t('triggerManual'), scheduled: t('triggerScheduled'), recurring: t('triggerRecurring') }[scheduleKind]}
-              onClick={() => setScreen('schedule-kind')}
-            />
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <span className="text-gray-400 flex-shrink-0 w-5 flex items-center justify-center"><CalIcon /></span>
+              <span className="flex-1 text-sm text-gray-700">{t('triggerLabel')}</span>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                {(['none', 'scheduled', 'recurring'] as ScheduleKind[]).map(k => (
+                  <button key={k} type="button"
+                    onClick={() => setScheduleKind(k)}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${scheduleKind === k ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                    {{ none: t('triggerManual'), scheduled: t('triggerScheduled'), recurring: t('triggerRecurring') }[k]}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {scheduleKind === 'scheduled' && (
               <>
@@ -800,13 +729,24 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
           {/* Executor (AI only) */}
           {isAI && (
             <CardSection>
-              <Row
-                icon={<BoltIcon />}
-                label={t('executorLabel')}
-                value={executorDisplay()}
-                accent={executorKind !== 'none'}
-                onClick={() => setScreen('executor-kind')}
-              />
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <span className="text-gray-400 flex-shrink-0 w-5 flex items-center justify-center"><BoltIcon /></span>
+                <span className="flex-1 text-sm text-gray-700">{t('executorLabel')}</span>
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                  {([
+                    { value: 'none' as ExecutorKind, label: t('executorNone') },
+                    { value: 'ai_prompt' as ExecutorKind, label: 'AI' },
+                    { value: 'script' as ExecutorKind, label: t('executorScript') },
+                    { value: 'http' as ExecutorKind, label: 'HTTP' },
+                  ]).map(opt => (
+                    <button key={opt.value} type="button"
+                      onClick={() => setExecutorKind(opt.value)}
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${executorKind === opt.value ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {executorKind === 'ai_prompt' && (
                 <>
                   <RowDivider />
