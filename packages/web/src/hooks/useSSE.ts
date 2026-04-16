@@ -9,9 +9,10 @@ export function useSSE(projectId: string | null, onEvent: (e: SSEEvent) => void)
   useEffect(() => {
     if (!projectId) return
 
+    const apiBase = (import.meta.env.VITE_API_URL ?? '') + '/api'
     const url = projectId === '__all__'
-      ? '/api/events'
-      : `/api/events?projectId=${projectId}`
+      ? `${apiBase}/events`
+      : `${apiBase}/events?projectId=${projectId}`
     const es = new EventSource(url)
 
     es.onmessage = (e) => {
