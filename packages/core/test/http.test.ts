@@ -20,9 +20,9 @@ const projectsRouter = (await import('../src/controllers/http/projects')).defaul
 const groupsModule = await import('../src/controllers/http/groups')
 const groupsRouter = groupsModule.default
 const viewProjectsRouter = groupsModule.viewProjectsRouter
-const ungroupedReorderRouter = groupsModule.ungroupedReorderRouter
 const tasksRouter = (await import('../src/controllers/http/tasks')).default
 const promptsRouter = (await import('../src/controllers/http/prompts')).default
+const runsRouter = (await import('../src/controllers/http/runs')).default
 const { Hono } = await import('hono')
 
 initDb()
@@ -33,8 +33,8 @@ const app = new Hono()
 app.route('/api/projects', projectsRouter)
 app.route('/api/groups', groupsRouter)
 app.route('/api/view/projects', viewProjectsRouter)
-app.route('/api/ungrouped/reorder', ungroupedReorderRouter)
 app.route('/api/tasks', tasksRouter)
+app.route('/api/tasks/:id/runs', runsRouter)
 app.route('/api/prompts', promptsRouter)
 app.get('/health', (c) => c.json({ ok: true, pid: process.pid }))
 
@@ -151,28 +151,6 @@ let groupId: string
   assert('GET /api/view/projects has ungrouped', Array.isArray(r.data?.ungrouped))
   const g = r.data?.groups?.find((g: any) => g.id === groupId)
   assert('GET /api/view/projects group has project', g?.projects?.some((p: any) => p.id === projId))
-}
-
-// second group for reorder test
-let groupId2: string
-{
-  const r = await api('POST', '/api/groups', { name: 'Personal' })
-  groupId2 = r.data.id
-}
-
-{
-  const r = await api('POST', '/api/groups/reorder', { ids: [groupId2, groupId] })
-  assert('POST /api/groups/reorder ok', r.data?.ok === true)
-  const listR = await api('GET', '/api/groups')
-  assert('reorder groups: groupId2 first', listR.data?.[0]?.id === groupId2)
-}
-
-// reorder projects within group
-{
-  const p2r = await api('POST', '/api/projects', { name: 'Second project in group', groupId })
-  const pid2 = p2r.data.id
-  const r = await api('POST', `/api/groups/${groupId}/projects/reorder`, { ids: [pid2, projId] })
-  assert('POST /api/groups/:id/projects/reorder ok', r.data?.ok === true)
 }
 
 // delete group → projects move to ungrouped
@@ -421,6 +399,56 @@ section('prompts')
 {
   const r = await api('GET', `/api/prompts/project/${projId}`)
   assert('GET project prompt after delete → 404', r.status === 404)
+}
+
+// ── projects - brain ─────────────────────────────────────────────────────────
+section('projects - brain')
+
+{
+  const proj2 = await api('POST', '/api/projects', { name: 'Brain test project' })
+  const pid2 = proj2.data?.id
+
+  // POST /api/projects already creates a brain task, so /:id/brain is idempotent (200)
+  const r1 = await api('POST', `/api/projects/${pid2}/brain`)
+  assert('POST /api/projects/:id/brain returns brain task', r1.data?.id?.startsWith('task_'))
+  assert('brain task is recurring', r1.data?.kind === 'recurring')
+  assert('brain task assignee=ai', r1.data?.assignee === 'ai')
+
+  // Second call: still idempotent, same task
+  const r2 = await api('POST', `/api/projects/${pid2}/brain`)
+  assert('POST /api/projects/:id/brain idempotent', r2.data?.id === r1.data?.id)
+
+  // 404 for unknown project
+  const r3 = await api('POST', '/api/projects/proj_unknown/brain')
+  assert('POST /api/projects/:id/brain 404 for unknown', r3.status === 404)
+}
+
+// ── tasks - runs ─────────────────────────────────────────────────────────────
+section('tasks - runs')
+
+{
+  // Create a task — no runs yet (task_runs only created for ai_prompt executor)
+  const created = await api('POST', '/api/tasks', {
+    projectId: projId,
+    title: 'Runs test task',
+    assignee: 'ai',
+    kind: 'once',
+    executor: { kind: 'script', command: 'echo run-test' },
+  })
+  const taskId = created.data?.id
+
+  // GET /api/tasks/:id/runs — returns empty array before any ai_prompt run
+  const runsR = await api('GET', `/api/tasks/${taskId}/runs`)
+  assert('GET /api/tasks/:id/runs 200', runsR.ok)
+  assert('runs is array', Array.isArray(runsR.data))
+
+  // 404 for unknown task
+  const notFound = await api('GET', '/api/tasks/task_unknown/runs')
+  assert('GET /api/tasks/:id/runs 404 for unknown task', notFound.status === 404)
+
+  // GET /api/tasks/:id/runs/:runId/spool — 404 for non-existent run
+  const spoolR = await api('GET', `/api/tasks/${taskId}/runs/run_unknown/spool`)
+  assert('GET /api/tasks/:id/runs/:runId/spool 404 for unknown run', spoolR.status === 404)
 }
 
 // ── tasks - delete ────────────────────────────────────────────────────────────
