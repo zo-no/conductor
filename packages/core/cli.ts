@@ -70,6 +70,15 @@ program
     const ref = {
       _doc: 'Conductor CLI quick reference for AI agents. Read what you need, look up full syntax with: conductor <command> --help',
       _full_docs: 'docs/integration.md (workflows) | docs/cli-api.md (full reference)',
+      _install: 'git clone https://github.com/zo-no/conductor ~/conductor && cd ~/conductor && pnpm install && pnpm install:cli',
+      _quickstart: [
+        '1. conductor daemon start',
+        '2. conductor project list --json   # find your project id',
+        '3. conductor task create --title "..." --project <id> --assignee ai --kind once --executor-kind ai_prompt --prompt "..." --json',
+        '4. conductor task run <task-id> --json   # synchronous — blocks until done',
+        '5. conductor task logs <task-id> --json',
+      ],
+      _note_sync_vs_async: 'CLI `task run` is SYNCHRONOUS (blocks until done). HTTP POST /api/tasks/:id/run is ASYNC (returns immediately, poll GET /api/tasks/:id for status).',
       intents: {
         'list projects': 'conductor project list --json',
         'create project': 'conductor project create --name "<name>" [--goal "<goal>"] [--work-dir "<path>"] --json',

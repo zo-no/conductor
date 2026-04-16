@@ -5,17 +5,59 @@
 
 ---
 
-## 快速上手：用 `/plan-project` 规划你的第一个项目
+## 安装
 
-如果你在 Claude Code 里工作，可以直接运行：
+```bash
+# 前置要求：Bun (https://bun.sh) + pnpm (https://pnpm.io)
 
+git clone https://github.com/zo-no/conductor ~/conductor
+cd ~/conductor
+pnpm install
+pnpm install:cli        # 编译二进制并复制到 ~/.bun/bin/conductor
+
+# 验证安装
+conductor version
 ```
-/plan-project
+
+确保 `~/.bun/bin` 在 PATH 里：
+
+```bash
+export PATH="$HOME/.bun/bin:$PATH"   # 加到 ~/.bashrc 或 ~/.zshrc
 ```
 
-这个 skill 会通过对话帮你把一个模糊的长期目标（理财计划、产品开发、团队流程…）转化为 Conductor 里可执行的任务系统，预览确认后自动写入。
+---
 
-适合：个人目标、产品研发、研究项目、团队运营流程等任何需要长期跟踪的工作。
+## 5 步 Quickstart（从零到第一个任务）
+
+```bash
+# 1. 启动后台 daemon（调度器 + HTTP API，端口 7762）
+conductor daemon start
+
+# 2. 查看默认项目
+conductor project list --json
+# → [{ "id": "proj_default", "name": "日常事务", ... }]
+
+# 3. 创建一个 AI 任务
+conductor task create \
+  --title "测试任务" \
+  --project proj_default \
+  --assignee ai \
+  --kind once \
+  --executor-kind ai_prompt \
+  --prompt "用一句话描述今天的日期：{date}" \
+  --json
+# → { "id": "task_xxx", "status": "pending", ... }
+
+# 4. 立即触发执行（同步，等待完成）
+conductor task run task_xxx --json
+# → { "id": "task_xxx", "status": "done", ... }
+
+# 5. 查看执行日志
+conductor task logs task_xxx --json
+# → [{ "status": "success", "output": "今天是 2026-04-16。", ... }]
+```
+
+> **不知道下一步该用什么命令？** 运行 `conductor help-ai` 获取 JSON 格式意图速查表。
 
 ---
 
@@ -190,9 +232,13 @@ conductor task create \
 conductor task run <task-id> --json
 ```
 
-- 同步执行，等待完成后返回最终 Task 对象
+- **同步执行**：等待任务完成后才返回，返回值是最终 Task 对象
 - 只能触发 `assignee = ai` 且配置了 executor 的任务
 - 执行结果在返回的 `status` 字段（`done` 或 `failed`）
+
+> ⚠️ **CLI vs HTTP 的重要差异**  
+> `conductor task run`（CLI）是**同步**的，会阻塞直到任务完成。  
+> `POST /api/tasks/:id/run`（HTTP）是**异步**的，立即返回 `{ ok: true }`，需要通过轮询 `GET /api/tasks/:id` 或监听 SSE 事件来跟踪完成状态。
 
 ---
 
@@ -286,12 +332,24 @@ Content-Type: application/json
 POST /api/tasks/task_xyz/run
 ```
 
-**订阅实时事件**（SSE）：
+**触发后轮询状态**（HTTP run 是异步的）：
+```http
+# 触发后立即返回，不等待完成
+POST /api/tasks/task_xyz/run
+→ { "ok": true, "taskId": "task_xyz" }
+
+# 轮询直到 status 不是 "running"
+GET /api/tasks/task_xyz
+→ { "status": "running" | "done" | "failed" | ... }
+```
+
+**或者订阅实时事件**（SSE，推荐）：
 ```http
 GET /api/events?projectId=proj_a1b2c3
 ```
 
-事件类型：`task_created` | `task_updated` | `task_deleted` | `run_line`（AI 实时输出行）
+事件类型：`task_created` | `task_updated` | `task_deleted` | `run_line`（AI 实时输出行）  
+收到 `task_updated` 后再 `GET /api/tasks/:id` 获取最新状态。
 
 **查询任务状态**：
 ```http
