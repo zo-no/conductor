@@ -55,6 +55,7 @@ export function createBrainTask(projectId: string): Task {
     assignee: 'ai',
     kind: 'recurring',
     createdBy: 'human',
+    enabled: false,
     executor: {
       kind: 'ai_prompt',
       prompt,

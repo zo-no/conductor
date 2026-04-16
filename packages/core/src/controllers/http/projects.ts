@@ -23,6 +23,8 @@ app.post('/', async (c) => {
     groupId: body.groupId,
     pinned: body.pinned,
   })
+  // Auto-create brain task (disabled by default)
+  createBrainTask(project.id)
   return c.json(project, 201)
 })
 

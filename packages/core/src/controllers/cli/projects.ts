@@ -5,6 +5,7 @@ import {
   deleteProject, archiveProject, unarchiveProject,
 } from '../../models/projects'
 import { createBrainTask } from '../../services/brain'
+import { updateTask } from '../../models/tasks'
 import { print, error } from './output'
 import { initDb } from '../../db/init'
 
@@ -54,6 +55,7 @@ export function registerProjectCommands(program: Command): void {
         groupId: opts.group,
         pinned: opts.pin !== false,
       })
+      createBrainTask(project.id)
       print(project, opts.json)
     })
 
@@ -142,14 +144,18 @@ export function registerProjectCommands(program: Command): void {
         workDir: workDir || undefined,
       })
 
+      // Always create brain task; enable only if user said yes
+      const brain = createBrainTask(project.id)
+      const brainEnabled = brainAnswer === 'y' || brainAnswer === 'yes'
+      if (brainEnabled) updateTask(brain.id, { enabled: true })
+
       console.log(`\n✅ 项目已创建: ${project.id}`)
       if (project.goal) console.log(`   目标: ${project.goal}`)
       if (project.workDir) console.log(`   工作区: ${project.workDir}`)
-
-      if (brainAnswer === 'y' || brainAnswer === 'yes') {
-        const brain = createBrainTask(project.id)
-        console.log(`🧠 AI 大脑已启用: ${brain.id}`)
-        console.log(`   ⚠️  Cron 在 daemon 运行时生效 (每 30 分钟自动触发)`)
+      if (brainEnabled) {
+        console.log(`🧠 AI 大脑已启用 (Cron 在 daemon 运行时生效)`)
+      } else {
+        console.log(`🧠 AI 大脑已内置（当前关闭，可用 conductor task update ${brain.id} --enable 开启）`)
       }
 
       console.log('')
