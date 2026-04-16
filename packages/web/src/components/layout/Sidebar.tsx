@@ -278,8 +278,9 @@ export function Sidebar({
   }
 
   const { groups, ungrouped } = projectsView
-  // filter system projects from ungrouped
-  const visibleUngrouped = ungrouped.filter(p => p.createdBy !== 'system')
+  // Hide system projects that are explicitly unpinned (e.g. proj_conductor maintenance project)
+  // System projects with pinned=true (e.g. proj_default 日常事务) should remain visible
+  const visibleUngrouped = ungrouped.filter(p => !(p.createdBy === 'system' && p.pinned === false))
   const archivedUngrouped = visibleUngrouped.filter(p => p.archived)
   const activeUngrouped = visibleUngrouped.filter(p => !p.archived)
 
