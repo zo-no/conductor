@@ -1,155 +1,282 @@
 # Conductor
 
-任何 AI agent 都能用的本地任务调度系统。
+**本地优先的任务调度引擎，人类和 AI 共用的 todo list + agent 调度器。**
 
-把一个长期目标（理财计划、产品开发、团队流程）交给你的 agent，它会把目标拆解成可执行的任务，注册定时调度，自动运行，并留下完整的执行记录。
-
-Conductor 不绑定任何特定的 AI 产品。只要 agent 能运行终端命令，就能用 Conductor 管理任务——无论是 Claude Code、Codex CLI、Cursor、Copilot，还是你自己写的 agent。
+A local-first task scheduling engine — a unified todo list and agent scheduler for humans and AI.
 
 ---
 
-## 快速安装
+## 它是什么 / What it is
 
-把下面这段话复制给你的 agent，让它帮你完成安装：
+Conductor 把人类任务和 AI 任务放在同一个列表里。人类处理需要判断的事，AI 自动执行可以自动化的事。两者共享同一个项目、同一条时间线、同一套审计日志。
 
-```
-请帮我安装 Conductor。步骤如下：
+Conductor puts human and AI tasks in the same list. Humans handle what needs judgment; AI handles what can be automated. Both share the same project, timeline, and audit trail.
 
-1. 确认已安装 bun（https://bun.sh）和 pnpm，如果没有先安装
-2. clone 仓库：git clone https://github.com/your-org/conductor ~/conductor
-3. 进入目录：cd ~/conductor
-4. 安装依赖：pnpm install
-5. 构建 CLI：bun build packages/core/cli.ts --compile --outfile conductor
-6. 安装到 PATH：cp conductor ~/.bun/bin/conductor
-7. 验证安装：conductor version
-8. 安装 skills（可选，支持 Claude Code 和 Codex CLI）：bash skills/install.sh
-9. 启动后台服务：conductor daemon start
-10. 启动 Web UI：pnpm --filter @conductor/web dev（后台运行，监听 http://localhost:5173）
-11. 确认服务正常：conductor daemon status
-
-完成后告诉我 conductor version 的输出、daemon 是否在运行，以及 Web UI 是否可以访问。
-```
+- **统一任务列表** — 每个任务有 `assignee`（`human` / `ai`）和 `kind`（`once` / `scheduled` / `recurring`）
+- **AI 任务执行** — 三种执行器：`ai_prompt`（调用 Claude/Codex）、`script`（shell 命令）、`http`（HTTP 接口）
+- **Human-in-the-loop** — AI 遇到卡点时创建人类任务阻塞自己，人类完成后自动恢复
+- **本地优先** — 数据存 `~/.conductor/db.sqlite`，无云服务，无账号
+- **实时 UI** — React Web 界面，SSE 实时推送任务状态和 AI 执行输出
 
 ---
 
-## 手动安装
+## 快速开始 / Quick start
 
-**前置要求：** [bun](https://bun.sh) + [pnpm](https://pnpm.io)
+**前置要求：** [Bun](https://bun.sh) + [pnpm](https://pnpm.io)
 
 ```bash
-# 克隆仓库
-git clone https://github.com/your-org/conductor ~/conductor
+# 克隆并安装 / Clone and install
+git clone https://github.com/zo-no/conductor ~/conductor
 cd ~/conductor
-
-# 安装依赖
 pnpm install
 
-# 构建并安装 CLI
-bun build packages/core/cli.ts --compile --outfile conductor
-cp conductor ~/.bun/bin/conductor
+# 构建并安装 CLI / Build and install CLI
+pnpm build
+pnpm install:cli   # copies to ~/.bun/bin/conductor
 
-# 验证
+# 验证 / Verify
 conductor version
 
-# 安装 skills（可选）
-# 自动检测 Claude Code（~/.claude）和 Codex CLI（~/.codex）并安装
-bash skills/install.sh
+# 启动后台服务 / Start backend (port 7762)
+conductor daemon start
+
+# 启动 Web UI / Start web UI (port 5173)
+pnpm dev:web
+# Open http://localhost:5173
 ```
 
 ---
-
-## 启动
-
-```bash
-# 启动后台调度器（负责定时任务的自动触发）
-conductor daemon start
-
-# 启动 Web UI
-pnpm --filter @conductor/web dev
-# 打开 http://localhost:5173
-```
 
 ## Web UI
 
-打开 `http://localhost:5173`，你会看到一个三栏布局：左侧项目列表、中间任务时间线、右侧任务编辑面板。
+打开 `http://localhost:5173`。
 
-时间线按时间分区展示所有任务——今天要做的、未来的定时任务、周期任务、以及等待你确认的 AI 卡点任务。
+Open `http://localhost:5173`.
 
-**主要功能：**
-- 查看 AI 任务的实时执行输出（流式显示）
-- 编辑任务的 prompt、调度时间、执行方式
-- 勾选完成人类任务，触发等待中的 AI 任务继续执行
-- 查看每个任务的执行历史和操作日志
-- 管理系统级 prompt（影响所有 AI 任务的上下文）
+**PC 端 / Desktop:**
+- 三栏布局：可折叠侧边栏（项目列表 + 分组）、时间线主区域、浮动任务详情卡片
+- 时间线按日期分区：今天 / 未来 / 周期任务 / 无时间 / 已完成
+- 实时查看 AI 任务的流式执行输出
+- 批量选择和删除任务
+- 侧边栏底部切换语言（中文 / English）
 
-移动端适配：顶部 tab 切换项目，人类任务和 AI 任务分开显示。
+**移动端 / Mobile:**
+- 顶部 header：左侧汉堡菜单（项目抽屉，从左滑出）、中间项目名、右侧设置图标
+- 左右滑动切换项目
+- 任务详情从右侧浮动卡片展示（背景高斯模糊）
+- 右下角 FAB 按钮新建任务
 
 ---
 
-## 用 Agent 规划你的第一个项目
+## 核心概念 / Core concepts
 
-如果你用的是 Claude Code 或 Codex CLI，安装 skills 后可以直接运行：
+### Project
+
+任务的上下文边界。每个项目可以设置：
+- `goal` — 目标描述，注入 AI 上下文
+- `workDir` — 脚本执行默认目录
+- `systemPrompt` — 项目级 prompt，追加在系统 prompt 之后
+- `group` — 所属分组（侧边栏分组展示）
+- `pinned` — 是否固定显示在侧边栏
+
+### Task
+
+系统唯一的执行单元，两个正交维度：
+
+| `assignee` | `kind` | 场景 / Example |
+|------------|--------|----------------|
+| `human` | `once` | 临时待办 / One-off to-do |
+| `human` | `recurring` | 周期打卡 / Weekly check-in |
+| `ai` | `once` | 手动触发的 AI 任务 / On-demand AI task |
+| `ai` | `scheduled` | 定时执行 / Run at 9am Friday |
+| `ai` | `recurring` | 周期执行 / Daily standup notes |
+
+### AI Task Executors
+
+**`ai_prompt`** — 调用 AI agent 执行 prompt：
+```json
+{
+  "kind": "ai_prompt",
+  "prompt": "总结 {date} 的工作进展。项目：{projectName}",
+  "agent": "claude"
+}
+```
+
+支持占位符：`{date}` `{datetime}` `{taskTitle}` `{taskDescription}` `{projectName}` `{lastOutput}` 以及自定义变量。
+
+**`script`** — 运行 shell 命令：
+```json
+{ "kind": "script", "command": "python3 ~/scripts/report.py", "workDir": "~/projects/myapp" }
+```
+
+**`http`** — 调用 HTTP 接口：
+```json
+{ "kind": "http", "url": "https://api.example.com/webhook", "method": "POST" }
+```
+
+### Prompt 三层结构 / Prompt layers
 
 ```
-/plan-project
+[系统级 prompt]    ← 全局，侧边栏底部设置
+[项目级 prompt]    ← 每个项目，项目设置里配置
+[任务 prompt]      ← executor.prompt
 ```
 
-通过对话描述你的目标（理财计划、产品开发、学习计划……），agent 会把目标拆解成 Conductor 任务，设置好定时调度，写入系统。
+三层拼接后统一替换占位符变量。
 
-其他 agent 可以直接通过 CLI 操作，详见 [Agent 接入指南](docs/integration.md)。
+### Human-in-the-loop
 
----
+```
+AI 任务（status: blocked）
+  └─ 人类任务（status: pending）← 在 UI 里可见，可勾选完成
+```
 
-## 核心概念
-
-**Project** — 任务的上下文边界，一个目标对应一个项目
-
-**Task** — 唯一的执行单元，两个维度：
-- `assignee`：`human`（你来做）或 `ai`（自动执行）
-- `kind`：`once`（一次性）、`scheduled`（定时一次）、`recurring`（周期重复）
-
-**Executor** — AI 任务的执行方式：
-- `ai_prompt`：调用 Claude / Codex 执行指令
-- `script`：运行 shell 命令
-- `http`：调用 HTTP 接口
+人类完成任务后（可附带输出文字），AI 任务自动恢复，输出注入为 `{lastOutput}`。
 
 ---
 
-## CLI 速查
+## CLI 速查 / CLI reference
 
 ```bash
-# 项目
+# 项目 / Projects
 conductor project list
-conductor project create --name "理财计划" --goal "3个月存款增加20%"
+conductor project create --name "My Project" --goal "Ship v2"
+conductor project update <id> --goal "Updated goal"
+conductor project delete <id>
+conductor project archive <id>
 
-# 任务
-conductor task list --project <proj-id>
-conductor task create --title "每周收支复盘" --project <proj-id> \
-  --assignee ai --kind recurring --cron "0 21 * * 0" \
-  --executor-kind ai_prompt --prompt "今天是 {date}，请分析本周收支情况"
+# 任务 / Tasks
+conductor task list --project <id>
+conductor task create --title "每日晨报" --project <id> \
+  --assignee ai --kind recurring --cron "0 9 * * *" \
+  --prompt "总结 {date} 的工作进展"
+conductor task run <id>
+conductor task done <id> --output "已确认"
+conductor task cancel <id>
+conductor task logs <id>
 
-# 执行
-conductor task run <task-id>
-conductor task done <task-id> --output "已确认"
+# 分组 / Groups
+conductor group list
+conductor group create --name "工作"
+conductor group delete <id>
 
-# 服务
+# Prompt
+conductor prompt get                     # 系统级 / system-level
+conductor prompt set "You are..."        # 设置系统 prompt
+conductor prompt get --project <id>      # 项目级 / project-level
+conductor prompt set "..." --project <id>
+
+# 服务 / Daemon
 conductor daemon start
 conductor daemon status
 conductor daemon stop
+conductor info
+
+# AI agent 速查表 / AI agent quick reference
+conductor help-ai
+```
+
+完整 API 参考 / Full API reference: [docs/cli-api.md](docs/cli-api.md)
+
+---
+
+## HTTP API
+
+Base URL: `http://localhost:7762`
+
+```
+# Projects
+GET/POST    /api/projects
+GET/PATCH/DELETE  /api/projects/:id
+POST        /api/projects/:id/archive
+POST        /api/projects/:id/unarchive
+
+# Groups
+GET/POST    /api/groups
+GET/PATCH/DELETE  /api/groups/:id
+POST        /api/groups/reorder
+POST        /api/groups/:id/projects/reorder
+
+# Tasks
+GET/POST    /api/tasks
+GET/PATCH/DELETE  /api/tasks/:id
+POST        /api/tasks/:id/run
+POST        /api/tasks/:id/done
+POST        /api/tasks/:id/cancel
+GET         /api/tasks/:id/logs
+GET         /api/tasks/:id/ops
+GET         /api/tasks/:id/runs
+GET         /api/tasks/:id/runs/:runId/spool
+
+# Prompts
+GET/PATCH   /api/prompts/system
+GET/PATCH   /api/prompts/project/:id
+DELETE      /api/prompts/project/:id
+
+# Real-time
+GET         /api/events?projectId=   # SSE stream
+GET         /health
 ```
 
 ---
 
-## 数据存储
+## 内置项目 / Built-in projects
 
-所有数据保存在本地 `~/.conductor/db.sqlite`，不依赖任何云服务。
+首次启动自动创建 / Created automatically on first start:
+
+**Conductor**（系统维护 / maintenance）:
+- 清理执行输出流水 — 每天 03:00
+- 清理操作审计记录 — 每周日 03:30
+- WAL Checkpoint & 优化 — 每天 04:00
+
+**日常事务 / Daily**:
+- 每日工作梳理 — 每天 21:00（AI 自动生成 / AI-generated）
+
+所有预置任务可修改、禁用，重启不会覆盖。
+
+All built-in tasks can be modified or disabled. Restarts won't overwrite your changes.
 
 ---
 
-## 文档
+## 开发 / Development
 
-- [架构概览](docs/architecture.md)
-- [执行模型](docs/execution-model.md)
-- [CLI & HTTP API 参考](docs/cli-api.md)
-- [Agent 接入指南](docs/integration.md)
-- [Web UI 设计](docs/ui-design.md)
+```bash
+# 后端测试 / Backend tests
+pnpm --filter @conductor/core test
+pnpm --filter @conductor/core test:models
+pnpm --filter @conductor/core test:http
+pnpm --filter @conductor/core test:scheduler
+pnpm --filter @conductor/core test:events
+
+# 前端 timeline 测试 / Frontend timeline tests
+bun packages/web/src/lib/timeline.test.ts
+
+# 前端类型检查 / Frontend type check
+pnpm --filter @conductor/web exec tsc --noEmit
+```
+
+---
+
+## 文档 / Docs
+
+| 文档 | Doc |
+|------|-----|
+| [架构概览](docs/architecture.md) | Architecture overview |
+| [执行模型](docs/execution-model.md) | Execution model (sessions, scheduling, prompts) |
+| [CLI & HTTP API](docs/cli-api.md) | Full CLI & HTTP API reference |
+| [接入指南](docs/integration.md) | Integration guide for AI agents |
+| [UI 设计](docs/ui-design.md) | Web UI design notes |
+| [国际化](docs/i18n.md) | i18n guide (zh/en) |
+
+---
+
+## 数据存储 / Data storage
+
+```
+~/.conductor/db.sqlite   # 所有数据 / All data
+~/.conductor/            # 数据目录 / Data directory
+```
+
+本地 SQLite，无云服务，无账号。
+
+Local SQLite. No cloud. No accounts.
