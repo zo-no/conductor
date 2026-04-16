@@ -228,9 +228,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
             {runs.length === 0 && logs.length === 0 && (
               <p className="text-sm text-gray-400 px-4 py-4">{t('noRuns')}</p>
             )}
-            {/* Merge runs and logs by startedAt, runs take precedence */}
             {(() => {
-              // Build a unified list: prefer run entries, supplement with log-only entries (skipped)
               const runIds = new Set(runs.map(r => r.startedAt))
               const logOnlyEntries = logs.filter(l => !runIds.has(l.startedAt))
 
@@ -251,9 +249,28 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
                 return new Date(bTime).getTime() - new Date(aTime).getTime()
               })
 
-              return entries.map((entry) => {
+              // Group consecutive skipped entries together
+              type Group =
+                | { kind: 'run'; entry: Extract<Entry, { kind: 'run' }> }
+                | { kind: 'skips'; entries: Extract<Entry, { kind: 'log' }>[] }
+
+              const groups: Group[] = []
+              for (const entry of entries) {
                 if (entry.kind === 'run') {
-                  const { run, log } = entry
+                  groups.push({ kind: 'run', entry })
+                } else {
+                  const last = groups[groups.length - 1]
+                  if (last?.kind === 'skips') {
+                    last.entries.push(entry)
+                  } else {
+                    groups.push({ kind: 'skips', entries: [entry] })
+                  }
+                }
+              }
+
+              return groups.map((group, i) => {
+                if (group.kind === 'run') {
+                  const { run, log } = group.entry
                   return (
                     <div key={run.id} className="border-b border-gray-50">
                       <button
@@ -296,27 +313,29 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
                         {run.error && <p className="text-xs text-red-400 mt-0.5">{run.error}</p>}
                       </button>
                       {log?.output && (
-                        <pre className="mx-4 mb-3 text-xs text-gray-500 bg-gray-50 rounded p-2 overflow-x-auto max-h-24 whitespace-pre-wrap">
-                          {log.output.slice(0, 400)}{log.output.length > 400 ? '…' : ''}
-                        </pre>
+                        <div className="mx-4 mb-3">
+                          <Markdown className="text-xs text-gray-500 bg-gray-50 rounded p-2 max-h-32 overflow-y-auto">
+                            {log.output.slice(0, 800) + (log.output.length > 800 ? '\n\n…' : '')}
+                          </Markdown>
+                        </div>
                       )}
                     </div>
                   )
                 } else {
-                  // log-only (skipped)
-                  const { log } = entry
+                  // Collapsed skipped group
+                  const count = group.entries.length
+                  const latest = group.entries[0].log
                   return (
-                    <div key={log.id} className="px-4 py-3 border-b border-gray-50 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-orange-400 font-medium">跳过</span>
-                        <span className="text-gray-400">
-                          {new Date(log.startedAt).toLocaleString('zh-CN', {
-                            month: 'numeric', day: 'numeric',
-                            hour: '2-digit', minute: '2-digit',
-                          })}
-                        </span>
-                      </div>
-                      {log.skipReason && <p className="text-gray-400 mt-0.5">{log.skipReason}</p>}
+                    <div key={`skips-${i}`} className="px-4 py-2 border-b border-gray-50 flex items-center justify-between">
+                      <span className="text-xs text-gray-300">
+                        {t('skipped')} ×{count}
+                      </span>
+                      <span className="text-xs text-gray-300">
+                        {new Date(latest.startedAt).toLocaleString('zh-CN', {
+                          month: 'numeric', day: 'numeric',
+                          hour: '2-digit', minute: '2-digit',
+                        })}
+                      </span>
                     </div>
                   )
                 }
