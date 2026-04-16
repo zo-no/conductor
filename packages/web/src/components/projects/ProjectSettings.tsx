@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Project } from '@conductor/types'
 import { api } from '../../lib/api'
 import { ConfirmDialog } from '../ui/Dialog'
@@ -9,51 +9,49 @@ interface Props {
   onDelete: () => void
 }
 
-type Tab = 'general' | 'prompt'
-
 export function ProjectSettings({ project, onDone, onDelete }: Props) {
-  const [tab, setTab] = useState<Tab>('general')
-
-  // General fields
   const [name, setName] = useState(project.name)
   const [goal, setGoal] = useState(project.goal ?? '')
   const [workDir, setWorkDir] = useState(project.workDir ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmArchive, setConfirmArchive] = useState(false)
 
-  // Prompt
+  // Prompt — always shown, load on mount
   const [promptContent, setPromptContent] = useState('')
   const [promptLoaded, setPromptLoaded] = useState(false)
-  const [promptSaving, setPromptSaving] = useState(false)
+  const promptLoadedRef = useRef(false)
 
-  async function loadPrompt() {
-    if (promptLoaded) return
-    try {
-      const p = await api.prompts.getProject(project.id)
-      setPromptContent(p?.content ?? '')
-    } catch {
-      setPromptContent('')
-    }
-    setPromptLoaded(true)
-  }
+  useEffect(() => {
+    if (promptLoadedRef.current) return
+    promptLoadedRef.current = true
+    api.prompts.getProject(project.id)
+      .then(p => setPromptContent(p?.content ?? ''))
+      .catch(() => {})
+      .finally(() => setPromptLoaded(true))
+  }, [project.id])
 
-  async function handleTabChange(t: Tab) {
-    setTab(t)
-    if (t === 'prompt') loadPrompt()
-  }
-
-  async function handleSaveGeneral(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) { setError('项目名称不能为空'); return }
     setSaving(true)
     setError('')
     try {
+      // Save general
       const updated = await api.projects.update(project.id, {
         name: name.trim(),
         goal: goal.trim() || undefined,
         workDir: workDir.trim() || undefined,
       })
+      // Save prompt
+      if (promptLoaded) {
+        if (promptContent.trim()) {
+          await api.prompts.setProject(project.id, promptContent.trim())
+        } else {
+          await api.prompts.deleteProject(project.id).catch(() => {})
+        }
+      }
       onDone(updated)
     } catch (e: any) {
       setError(e.message ?? '保存失败')
@@ -62,30 +60,14 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
     }
   }
 
-  async function handleSavePrompt() {
-    setPromptSaving(true)
-    try {
-      if (promptContent.trim()) {
-        await api.prompts.setProject(project.id, promptContent.trim())
-      } else {
-        await api.prompts.deleteProject(project.id)
-      }
-      onDone()
-    } catch {}
-    setPromptSaving(false)
-  }
-
-  async function handleArchive() {
+  async function handleArchiveConfirmed() {
+    setConfirmArchive(false)
     if (project.archived) {
       await api.projects.unarchive(project.id)
     } else {
       await api.projects.archive(project.id)
     }
     onDone()
-  }
-
-  function handleDelete() {
-    setConfirmDelete(true)
   }
 
   async function handleDeleteConfirmed() {
@@ -96,155 +78,133 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
 
   return (
     <>
-    {confirmDelete && (
-      <ConfirmDialog
-        message={`确定删除项目「${project.name}」？此操作不可撤销，项目下所有任务也会被删除。`}
-        confirmLabel="删除"
-        danger
-        onConfirm={handleDeleteConfirmed}
-        onCancel={() => setConfirmDelete(false)}
-      />
-    )}
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[85vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-900">项目设置</h2>
-          <button onClick={() => onDone()} className="text-gray-400 hover:text-gray-600">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`确定删除项目「${project.name}」？此操作不可撤销，项目下所有任务也会被删除。`}
+          confirmLabel="删除"
+          danger
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+      {confirmArchive && (
+        <ConfirmDialog
+          message={project.archived ? `取消归档「${project.name}」？` : `归档项目「${project.name}」？`}
+          confirmLabel={project.archived ? '取消归档' : '归档'}
+          onConfirm={handleArchiveConfirmed}
+          onCancel={() => setConfirmArchive(false)}
+        />
+      )}
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-100">
-          {(['general', 'prompt'] as Tab[]).map(t => (
-            <button
-              key={t}
-              onClick={() => handleTabChange(t)}
-              className={`flex-1 py-2 text-xs font-medium ${
-                tab === t ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              {{ general: '基本信息', prompt: '系统 Prompt' }[t]}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {tab === 'general' && (
-            <form onSubmit={handleSaveGeneral}>
-              <div className="px-5 py-4 space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">项目名称 *</label>
-                  <input
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">目标描述</label>
-                  <textarea
-                    value={goal}
-                    onChange={e => setGoal(e.target.value)}
-                    placeholder="项目目标，会注入 AI 上下文"
-                    rows={3}
-                    className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">工作目录</label>
-                  <input
-                    value={workDir}
-                    onChange={e => setWorkDir(e.target.value)}
-                    placeholder="~/projects/xxx"
-                    className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-mono text-xs"
-                  />
-                </div>
-
-                {error && <p className="text-xs text-red-500 bg-red-50 rounded px-3 py-2">{error}</p>}
-
-                <div className="flex justify-end gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => onDone()}
-                    className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800 rounded-md hover:bg-gray-100"
-                  >
-                    取消
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="px-4 py-1.5 text-sm font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
-                  >
-                    {saving ? '保存中...' : '保存'}
-                  </button>
-                </div>
-
-                {/* Danger zone */}
-                <div className="border-t border-gray-100 pt-4 space-y-2">
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">危险操作</p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleArchive}
-                      className="flex-1 py-1.5 text-xs border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50"
-                    >
-                      {project.archived ? '取消归档' : '归档项目'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      className="flex-1 py-1.5 text-xs border border-red-200 text-red-500 rounded-md hover:bg-red-50"
-                    >
-                      删除项目
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </form>
-          )}
-
-          {tab === 'prompt' && (
-            <div className="px-5 py-4 space-y-3">
-              <p className="text-xs text-gray-400">
-                项目级 Prompt 会追加在系统 Prompt 之后，在所有 AI 任务中生效。
-              </p>
-              {!promptLoaded ? (
-                <p className="text-xs text-gray-400">加载中...</p>
-              ) : (
-                <>
-                  <textarea
-                    value={promptContent}
-                    onChange={e => setPromptContent(e.target.value)}
-                    placeholder="输入项目级 Prompt，留空则删除"
-                    rows={8}
-                    className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none font-mono text-xs"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => onDone()}
-                      className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800 rounded-md hover:bg-gray-100"
-                    >
-                      取消
-                    </button>
-                    <button
-                      onClick={handleSavePrompt}
-                      disabled={promptSaving}
-                      className="px-4 py-1.5 text-sm font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
-                    >
-                      {promptSaving ? '保存中...' : '保存'}
-                    </button>
-                  </div>
-                </>
-              )}
+      <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-sm flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-900">{project.name}</h2>
+            <div className="flex items-center gap-0.5">
+              {/* Archive icon */}
+              <button
+                onClick={() => setConfirmArchive(true)}
+                title={project.archived ? '取消归档' : '归档'}
+                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-md"
+              >
+                {project.archived ? (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8" />
+                  </svg>
+                )}
+              </button>
+              {/* Delete icon */}
+              <button
+                onClick={() => setConfirmDelete(true)}
+                title="删除项目"
+                className="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-400 rounded-md"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+              {/* Close */}
+              <button
+                onClick={() => onDone()}
+                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-md"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-          )}
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSave}>
+            <div className="px-4 py-3 space-y-3">
+              {/* Name */}
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="项目名称"
+                autoFocus
+                className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-400"
+              />
+
+              {/* Goal */}
+              <textarea
+                value={goal}
+                onChange={e => setGoal(e.target.value)}
+                placeholder="目标描述（注入 AI 上下文）"
+                rows={2}
+                className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 resize-none"
+              />
+
+              {/* WorkDir */}
+              <input
+                value={workDir}
+                onChange={e => setWorkDir(e.target.value)}
+                placeholder="工作目录  ~/projects/xxx"
+                className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 font-mono text-xs"
+              />
+
+              {/* Prompt */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">系统 Prompt</label>
+                <textarea
+                  value={promptContent}
+                  onChange={e => setPromptContent(e.target.value)}
+                  placeholder={promptLoaded ? '输入项目级 Prompt，留空则不设置' : '加载中...'}
+                  disabled={!promptLoaded}
+                  rows={3}
+                  className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 resize-none font-mono text-xs"
+                />
+              </div>
+
+              {error && <p className="text-xs text-red-500">{error}</p>}
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-3 border-t border-gray-100 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => onDone()}
+                className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-1.5 text-sm font-medium bg-gray-900 text-white rounded-md hover:bg-gray-800 disabled:opacity-50"
+              >
+                {saving ? '保存中…' : '保存'}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
-    </div>
     </>
   )
 }

@@ -17,7 +17,7 @@ interface Props {
 }
 
 export function Timeline({ tasks, projects, assigneeFilter, onSelect, onRefresh, selectedTaskId, selectMode, selectedIds, onToggleSelect }: Props) {
-  const [recurringExpanded, setRecurringExpanded] = useState(false)
+  const [recurringExpanded, setRecurringExpanded] = useState(true)
   const [doneExpanded, setDoneExpanded] = useState(false)
 
   // All-projects mode: render one Timeline section per project
