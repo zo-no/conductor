@@ -1,7 +1,7 @@
 import { Command } from 'commander'
 import {
   listGroups, getGroup, createGroup, updateGroup, deleteGroup,
-  reorderGroups, reorderProjectsInGroup, getProjectsView,
+  getProjectsView,
 } from '../../models/project-groups'
 import { print, error } from './output'
 import { initDb } from '../../db/init'
@@ -79,25 +79,4 @@ export function registerGroupCommands(program: Command): void {
       print({ ok: true }, opts.json)
     })
 
-  group
-    .command('reorder <ids...>')
-    .description('reorder groups by providing all group ids in new order')
-    .option('--json', 'output as JSON')
-    .action((ids, opts) => {
-      ensureDb()
-      reorderGroups(ids)
-      print({ ok: true, order: ids }, opts.json)
-    })
-
-  group
-    .command('reorder-projects <groupId> <ids...>')
-    .description('reorder projects within a group')
-    .option('--json', 'output as JSON')
-    .action((groupId, ids, opts) => {
-      ensureDb()
-      const existing = getGroup(groupId)
-      if (!existing) error(`group ${groupId} not found`)
-      reorderProjectsInGroup(groupId, ids)
-      print({ ok: true, groupId, order: ids }, opts.json)
-    })
 }

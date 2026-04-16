@@ -314,12 +314,6 @@ conductor project update <project-id> --no-group --json
 # 将后台项目设为不固定显示（折叠到侧边栏"更多"区）
 conductor project update <project-id> --no-pin --json
 
-# 重新排列分组顺序
-conductor group reorder <id1> <id2> ... --json
-
-# 重新排列分组内项目顺序
-conductor group reorder-projects <group-id> <proj-id1> <proj-id2> ... --json
-
 # 删除分组（分组内项目移到未分组）
 conductor group delete <group-id> --json
 ```

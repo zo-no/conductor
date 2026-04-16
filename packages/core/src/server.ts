@@ -5,7 +5,7 @@ import { reconcile, startScheduler } from './services/scheduler'
 import { bootstrap } from './services/bootstrap'
 import { authMiddleware, isAuthEnabled } from './services/auth'
 import projectsRouter from './controllers/http/projects'
-import groupsRouter, { viewProjectsRouter, ungroupedReorderRouter } from './controllers/http/groups'
+import groupsRouter, { viewProjectsRouter } from './controllers/http/groups'
 import tasksRouter from './controllers/http/tasks'
 import promptsRouter from './controllers/http/prompts'
 import eventsRouter from './controllers/http/events'
@@ -33,7 +33,6 @@ app.use('/api/*', authMiddleware)
 app.route('/api/projects', projectsRouter)
 app.route('/api/groups', groupsRouter)
 app.route('/api/view/projects', viewProjectsRouter)
-app.route('/api/ungrouped/reorder', ungroupedReorderRouter)
 app.route('/api/tasks', tasksRouter)
 app.route('/api/tasks/:id/runs', runsRouter)
 app.route('/api/prompts', promptsRouter)

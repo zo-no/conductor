@@ -9,7 +9,7 @@
     "build": "bun build packages/core/cli.ts --compile --outfile conductor",
     "build:web": "pnpm --filter @conductor/web build",
     "build:all": "pnpm build:web && pnpm build",
-    "install:cli": "bun run build && cp conductor ~/.bun/bin/conductor"
+    "install:cli": "bun run build && cp conductor ~/.bun/bin/conductor && codesign --force --sign - ~/.bun/bin/conductor"
   },
   "devDependencies": {
     "typescript": "^5.4.0"

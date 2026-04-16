@@ -150,7 +150,6 @@ program
         archive:  'conductor project archive <id> --json',
         unarchive:'conductor project unarchive <id> --json',
         delete:   'conductor project delete <id> --json',
-        'reorder ungrouped': 'conductor project reorder-ungrouped <id1> <id2> ... --json',
       },
 
       // ── Groups ────────────────────────────────────────────────────────────
@@ -160,8 +159,6 @@ program
         create:  'conductor group create --name "<name>" [--collapsed] [--created-by ai] --json',
         update:  'conductor group update <id> [--name ""] [--collapse|--expand] --json',
         delete:  'conductor group delete <id> --json   # projects move to ungrouped',
-        reorder: 'conductor group reorder <id1> <id2> ... --json',
-        'reorder projects': 'conductor group reorder-projects <gid> <pid1> <pid2> ... --json',
       },
 
       // ── Prompts ───────────────────────────────────────────────────────────
@@ -203,4 +200,4 @@ program
     console.log(JSON.stringify(ref, null, 2))
   })
 
-program.parseAsync(process.argv)
+program.parseAsync(process.argv).then(() => process.exit(0))

@@ -86,34 +86,6 @@ export function deleteGroup(id: string): boolean {
   return result.changes > 0
 }
 
-/** Reorder groups: accept ordered array of all group ids, assign order_index 0,1,2... */
-export function reorderGroups(orderedIds: string[]): void {
-  const db = getDb()
-  const ts = now()
-  for (let i = 0; i < orderedIds.length; i++) {
-    db.run(`UPDATE project_groups SET order_index = ?, updated_at = ? WHERE id = ?`, [i, ts, orderedIds[i]])
-  }
-}
-
-/** Reorder projects within a group (or ungrouped when groupId is null) */
-export function reorderProjectsInGroup(groupId: string | null, orderedIds: string[]): void {
-  const db = getDb()
-  const ts = now()
-  for (let i = 0; i < orderedIds.length; i++) {
-    if (groupId === null) {
-      db.run(
-        `UPDATE projects SET order_index = ?, updated_at = ? WHERE id = ? AND group_id IS NULL`,
-        [i, ts, orderedIds[i]],
-      )
-    } else {
-      db.run(
-        `UPDATE projects SET order_index = ?, updated_at = ? WHERE id = ? AND group_id = ?`,
-        [i, ts, orderedIds[i], groupId],
-      )
-    }
-  }
-}
-
 /** Build the full ProjectsView (groups with nested projects + ungrouped) */
 export function getProjectsView(): ProjectsView {
   const groups = listGroups()

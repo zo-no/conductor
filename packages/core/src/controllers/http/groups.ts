@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import {
   listGroups, getGroup, createGroup, updateGroup, deleteGroup,
-  reorderGroups, reorderProjectsInGroup, getProjectsView,
+  getProjectsView,
 } from '../../models/project-groups'
 import { updateProject } from '../../models/projects'
 
@@ -58,30 +58,5 @@ app.delete('/:id', (c) => {
   return c.json({ ok: true })
 })
 
-// POST /api/groups/reorder — reorder all groups
-app.post('/reorder', async (c) => {
-  const body = await c.req.json()
-  if (!Array.isArray(body.ids)) return c.json({ error: 'ids array required' }, 400)
-  reorderGroups(body.ids)
-  return c.json({ ok: true })
-})
-
-// POST /api/groups/:id/projects/reorder — reorder projects within a group
-app.post('/:id/projects/reorder', async (c) => {
-  const groupId = c.req.param('id')
-  const body = await c.req.json()
-  if (!Array.isArray(body.ids)) return c.json({ error: 'ids array required' }, 400)
-  reorderProjectsInGroup(groupId, body.ids)
-  return c.json({ ok: true })
-})
-
-// POST /api/ungrouped/reorder — reorder ungrouped projects
-export const ungroupedReorderRouter = new Hono()
-ungroupedReorderRouter.post('/', async (c) => {
-  const body = await c.req.json()
-  if (!Array.isArray(body.ids)) return c.json({ error: 'ids array required' }, 400)
-  reorderProjectsInGroup(null, body.ids)
-  return c.json({ ok: true })
-})
 
 export default app

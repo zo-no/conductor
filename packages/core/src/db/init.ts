@@ -17,6 +17,7 @@ export function getDb(): Database {
   mkdirSync(CONDUCTOR_DIR, { recursive: true })
   _db = new Database(DB_PATH, { create: true })
   _db.run('PRAGMA journal_mode = WAL')
+  _db.run('PRAGMA busy_timeout = 5000')
   _db.run('PRAGMA foreign_keys = ON')
   return _db
 }
