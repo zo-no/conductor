@@ -13,7 +13,7 @@
 | Task assignee × kind 正交 | ✅ | |
 | Task 完整状态机 | ✅ | |
 | TaskRun + TaskRunSpool | ✅ | |
-| TaskLog 保留最近 50 条（清理） | 🟡 | 有 limit 查询，无定期清理 |
+| TaskLog 保留最近 50 条（清理） | ✅ | bootstrap 内置清理任务，每天 03:00 执行 |
 | TaskLog output 截断至 64KB | ❌ | executor 输出未做截断 |
 | TaskOp 永久保留 | ✅ | |
 | tasks.last_session_id 字段 | ✅ | |
@@ -47,6 +47,25 @@
 | Tasks runs + spool | ✅ |
 | Prompts system + project | ✅ |
 | Events SSE（含 run_line） | ✅ |
+
+---
+
+## 鉴权
+
+| 特性 | 状态 |
+|------|------|
+| HTTP API 鉴权（token） | ✅ |
+| Web UI 登录页 | ✅ |
+| `conductor auth token\|status\|disable` | ✅ |
+
+---
+
+## 国际化
+
+| 特性 | 状态 |
+|------|------|
+| Web UI 国际化（zh/en） | ✅ |
+| 语言切换按钮（侧边栏 + 移动端抽屉） | ✅ |
 
 ---
 
@@ -88,4 +107,10 @@
 | 项目新建改用正式对话框 | ✅ | PromptDialog |
 | 默认项目"日常事务"自动创建 | ✅ | initDb seed |
 | 默认项目不可删除/改名/归档 | ✅ | HTTP controller 保护 |
+| 侧边栏折叠 | ✅ | |
+| 移动端项目抽屉（左滑出） | ✅ | |
+| 任务详情浮动卡片（高斯模糊背景） | ✅ | |
+| 批量删除任务 | ✅ | |
+| 项目分组（ProjectGroup）侧边栏展示 | ✅ | |
+| 任务日志（TaskLog）展示 | ✅ | |
 | human 任务完成后动画过渡 | ❌ | 纯视觉细节 |

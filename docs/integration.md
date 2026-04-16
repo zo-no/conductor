@@ -61,6 +61,25 @@ conductor task logs task_xxx --json
 
 ---
 
+## 鉴权 / Authentication
+
+Conductor 默认无鉴权。如果你的 Conductor 实例启用了鉴权（`conductor auth status` 显示 ENABLED），需要在每个 API 请求里携带令牌：
+
+**CLI**：CLI 直接读写本地 SQLite，不经过 HTTP，**不需要令牌**。
+
+**HTTP API**：
+```bash
+# Header（推荐）
+curl -H "Authorization: Bearer <token>" http://localhost:7762/api/tasks
+
+# Query param（SSE 用）
+curl "http://localhost:7762/api/events?projectId=<id>&token=<token>"
+```
+
+令牌通过 `conductor auth token` 生成，详见 [auth.md](auth.md)。
+
+---
+
 ## 我应该用 CLI 还是 HTTP API？
 
 | 场景 | 推荐方式 |

@@ -43,6 +43,7 @@
   groupId?: string    // 归属分组 id，null = 未分组
   order: number       // 在分组内（或未分组列表中）的展示顺序
   pinned: boolean     // false = 折叠到侧边栏"更多"区，默认 true
+  createdBy: "human" | "ai" | "system"
 }
 ```
 
@@ -650,6 +651,44 @@ conductor prompt delete [--project <project-id>] [--json]
 
 ---
 
+### 鉴权
+
+#### `conductor auth token`
+
+生成访问令牌并启用 HTTP API 认证。令牌存储在 `~/.conductor/auth.json`（权限 600）。
+
+```bash
+conductor auth token
+```
+
+**输出**：生成的令牌字符串。首次运行后所有 `/api/*` 请求均需携带该令牌。
+
+---
+
+#### `conductor auth status`
+
+检查当前是否已启用认证。
+
+```bash
+conductor auth status [--json]
+```
+
+**输出**：`enabled` 或 `disabled`；`--json` 时返回 `{ "enabled": true }`。
+
+---
+
+#### `conductor auth disable`
+
+禁用认证（删除 `~/.conductor/auth.json`），之后所有请求无需令牌即可访问。
+
+```bash
+conductor auth disable
+```
+
+**输出**：`auth disabled`。
+
+---
+
 ### 系统
 
 #### `conductor daemon start`
@@ -704,7 +743,33 @@ conductor version
 
 **Base URL**：`http://localhost:7762`  
 **Content-Type**：`application/json`  
-**认证**：无（本地工具，不需要认证）
+**认证**：启用认证后，所有 `/api/*` 路由均需携带令牌（见下方 Auth 章节）。未启用认证时可直接访问。
+
+---
+
+### Auth
+
+#### `GET /auth/status`
+
+检查当前是否已启用认证。**无需令牌，始终可访问**。
+
+**响应** `200`：
+```json
+{ "enabled": true }
+```
+
+---
+
+> **认证说明**：启用认证后（执行 `conductor auth token` 后），所有 `/api/*` 请求需通过以下任一方式传递令牌：
+>
+> | 方式 | 格式 |
+> |------|------|
+> | HTTP Header | `Authorization: Bearer <token>` |
+> | Cookie | `conductor_token=<token>` |
+> | 查询参数 | `?token=<token>`（适用于 SSE/EventSource） |
+>
+> 认证失败时返回 `401 { "error": "Unauthorized", "hint": "Pass token via Authorization: Bearer <token>" }`。  
+> 详见 [auth.md](./auth.md)。
 
 ---
 
