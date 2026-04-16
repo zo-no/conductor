@@ -16,14 +16,21 @@ export function clearStoredToken(): void {
   sessionStorage.removeItem(TOKEN_KEY)
 }
 
-// Fetch /auth/status to check if auth is required
+// Check if auth is required by probing /api/projects
+// Falls back gracefully: if unreachable or no auth, returns false
 export async function checkAuthRequired(): Promise<boolean> {
   try {
-    const res = await fetch('/auth/status')
-    if (!res.ok) return false
-    const data = await res.json() as { enabled: boolean }
-    return data.enabled === true
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 3000)
+    const apiBase = (import.meta.env.VITE_API_URL ?? '') + '/api'
+    const res = await fetch(`${apiBase}/projects`, { signal: controller.signal })
+    clearTimeout(timeout)
+    // 401 means auth is enabled and we have no token
+    if (res.status === 401) return true
+    // Any other response (200, 5xx, etc.) means no auth or already authed
+    return false
   } catch {
+    // Timeout or network error — assume no auth, let user in
     return false
   }
 }
