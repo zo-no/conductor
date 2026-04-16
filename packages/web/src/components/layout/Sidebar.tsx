@@ -287,13 +287,11 @@ export function Sidebar({
   }
 
   const { groups, ungrouped } = projectsView
-  // proj_conductor is the background maintenance project — always hidden.
-  // Other system projects (e.g. proj_default 日常事务) are shown/hidden by user toggle.
-  const visibleUngrouped = ungrouped.filter(p => {
-    if (p.id === 'proj_conductor') return false          // maintenance, always hidden
-    if (p.createdBy === 'system') return showSystemProjects  // other system projects: user-controlled
-    return true                                          // human projects: always visible
-  })
+  // System projects (createdBy === 'system') are shown/hidden by the user toggle.
+  // Human projects are always visible.
+  const visibleUngrouped = ungrouped.filter(p =>
+    p.createdBy !== 'system' || showSystemProjects
+  )
   const archivedUngrouped = visibleUngrouped.filter(p => p.archived)
   const activeUngrouped = visibleUngrouped.filter(p => !p.archived)
 
