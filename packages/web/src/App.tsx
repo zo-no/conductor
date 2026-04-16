@@ -87,7 +87,7 @@ export default function App() {
     loadProjects().then(ps => {
       if (ps.length > 0 && !selectedProjectId) setSelectedProjectId(ps[0].id)
     }).finally(() => setLoading(false))
-  }, [loadProjects]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authState, loadProjects]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load tasks — all projects or single project
   const loadTasks = useCallback(() => {
