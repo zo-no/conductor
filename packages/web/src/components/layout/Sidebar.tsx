@@ -268,6 +268,15 @@ export function Sidebar({
   const t = useT()
   const [locale, setLocale] = useLocale()
   const [newGroupPrompt, setNewGroupPrompt] = useState(false)
+  const [showSystemProjects, setShowSystemProjects] = useState(() => {
+    return localStorage.getItem('conductor_show_system_projects') === 'true'
+  })
+
+  function toggleSystemProjects() {
+    const next = !showSystemProjects
+    setShowSystemProjects(next)
+    localStorage.setItem('conductor_show_system_projects', String(next))
+  }
 
   // Count pending human tasks per project
   const pendingByProject = new Map<string, number>()
@@ -278,10 +287,13 @@ export function Sidebar({
   }
 
   const { groups, ungrouped } = projectsView
-  // Only hide the background maintenance project (proj_conductor).
-  // All other projects — including system defaults like proj_default (日常事务) — should be visible.
-  const HIDDEN_PROJECT_IDS = new Set(['proj_conductor'])
-  const visibleUngrouped = ungrouped.filter(p => !HIDDEN_PROJECT_IDS.has(p.id))
+  // proj_conductor is the background maintenance project — always hidden.
+  // Other system projects (e.g. proj_default 日常事务) are shown/hidden by user toggle.
+  const visibleUngrouped = ungrouped.filter(p => {
+    if (p.id === 'proj_conductor') return false          // maintenance, always hidden
+    if (p.createdBy === 'system') return showSystemProjects  // other system projects: user-controlled
+    return true                                          // human projects: always visible
+  })
   const archivedUngrouped = visibleUngrouped.filter(p => p.archived)
   const activeUngrouped = visibleUngrouped.filter(p => !p.archived)
 
@@ -442,6 +454,18 @@ export function Sidebar({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </button>
+            {/* System projects toggle */}
+            <button
+              onClick={toggleSystemProjects}
+              title={showSystemProjects ? '隐藏系统项目' : '显示系统项目'}
+              className={['w-full h-8 flex items-center justify-center rounded-md transition-colors',
+                showSystemProjects ? 'text-blue-500 hover:bg-blue-50' : 'text-gray-300 hover:text-gray-500 hover:bg-white'
+              ].join(' ')}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+              </svg>
+            </button>
             <button
               onClick={() => setLocale(locale === 'zh' ? 'en' : 'zh')}
               title={locale === 'zh' ? 'English' : '中文'}
@@ -472,6 +496,20 @@ export function Sidebar({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               {t('systemPrompt')}
+            </button>
+            {/* System projects toggle */}
+            <button
+              onClick={toggleSystemProjects}
+              className={['w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors',
+                showSystemProjects
+                  ? 'text-blue-600 hover:bg-blue-50'
+                  : 'text-gray-400 hover:text-gray-700 hover:bg-white'
+              ].join(' ')}
+            >
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+              </svg>
+              <span>{showSystemProjects ? '隐藏系统项目' : '显示系统项目'}</span>
             </button>
             {/* Language toggle */}
             <button
