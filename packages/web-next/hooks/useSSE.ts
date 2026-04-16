@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { getStoredToken } from '../lib/auth'
 
 export type SSEEvent =
   | { type: 'task_updated' | 'task_created' | 'task_deleted' | 'connected'; data?: { taskId: string; projectId: string } }
@@ -10,12 +9,10 @@ export function useSSE(projectId: string | null, onEvent: (e: SSEEvent) => void)
   useEffect(() => {
     if (!projectId) return
 
-    const apiBase = (import.meta.env.VITE_API_URL ?? '') + '/api'
-    const token = getStoredToken()
-    const tokenParam = token ? `&token=${encodeURIComponent(token)}` : ''
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? '') + '/api'
     const url = projectId === '__all__'
-      ? `${apiBase}/events${token ? `?token=${encodeURIComponent(token)}` : ''}`
-      : `${apiBase}/events?projectId=${projectId}${tokenParam}`
+      ? `${apiBase}/events`
+      : `${apiBase}/events?projectId=${projectId}`
     const es = new EventSource(url)
 
     es.onmessage = (e) => {

@@ -50,6 +50,48 @@ program
   )
 
 program
+  .command('auth')
+  .description('manage HTTP API authentication')
+  .addCommand(
+    new Command('token')
+      .description('generate and save a new access token (enables auth)')
+      .action(() => {
+        const { enableAuth } = require('./src/services/auth')
+        const token = enableAuth()
+        console.log('\nAccess token generated and saved to ~/.conductor/auth.json')
+        console.log('\nToken:', token)
+        console.log('\nUsage:')
+        console.log('  Header:  Authorization: Bearer ' + token)
+        console.log('  Cookie:  conductor_token=' + token)
+        console.log('  Query:   ?token=' + token)
+        console.log('\nTo disable auth: conductor auth disable\n')
+      }),
+  )
+  .addCommand(
+    new Command('status')
+      .description('show whether auth is enabled')
+      .action(() => {
+        const { isAuthEnabled, getToken } = require('./src/services/auth')
+        if (isAuthEnabled()) {
+          const token = getToken()
+          console.log('Auth: ENABLED')
+          console.log('Token:', token)
+        } else {
+          console.log('Auth: DISABLED (open access)')
+        }
+      }),
+  )
+  .addCommand(
+    new Command('disable')
+      .description('disable auth (delete token, open access)')
+      .action(() => {
+        const { disableAuth } = require('./src/services/auth')
+        disableAuth()
+        console.log('Auth disabled. All API requests are now open.')
+      }),
+  )
+
+program
   .command('info')
   .description('show conductor info')
   .option('--json', 'output as JSON')

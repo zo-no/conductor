@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { initDb } from './db/init'
 import { reconcile, startScheduler } from './services/scheduler'
 import { bootstrap } from './services/bootstrap'
+import { authMiddleware, isAuthEnabled } from './services/auth'
 import projectsRouter from './controllers/http/projects'
 import groupsRouter, { viewProjectsRouter, ungroupedReorderRouter } from './controllers/http/groups'
 import tasksRouter from './controllers/http/tasks'
@@ -15,7 +16,15 @@ const PORT = parseInt(process.env.CONDUCTOR_PORT ?? '7762')
 const app = new Hono()
 
 // CORS — allow any origin so the frontend can be hosted anywhere
-app.use('*', cors())
+app.use('*', cors({
+  origin: '*',
+  allowHeaders: ['Content-Type', 'Authorization'],
+  allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  credentials: true,
+}))
+
+// Auth middleware — protects all /api/* routes
+app.use('/api/*', authMiddleware)
 
 app.route('/api/projects', projectsRouter)
 app.route('/api/groups', groupsRouter)
@@ -27,6 +36,9 @@ app.route('/api/prompts', promptsRouter)
 app.route('/api/events', eventsRouter)
 
 app.get('/health', (c) => c.json({ ok: true, pid: process.pid }))
+
+// Auth status endpoint (public — used by web UI to check if auth is required)
+app.get('/auth/status', (c) => c.json({ enabled: isAuthEnabled() }))
 
 // Boot sequence
 initDb()

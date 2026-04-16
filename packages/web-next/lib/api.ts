@@ -1,5 +1,4 @@
 import type { Project, Task, TaskLog, TaskOp, ProjectGroup, ProjectsView } from '@conductor/types'
-import { getStoredToken, clearStoredToken } from './auth'
 
 export interface TaskRun {
   id: string
@@ -18,27 +17,13 @@ export interface SpoolLine {
   line: string
 }
 
-const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
+const BASE = (process.env.NEXT_PUBLIC_API_URL ?? '') + '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = getStoredToken()
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-
   const res = await fetch(`${BASE}${path}`, {
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     ...options,
-    // Merge caller headers on top
-    ...(options?.headers ? { headers: { ...headers, ...(options.headers as Record<string, string>) } } : {}),
   })
-
-  if (res.status === 401) {
-    // Token invalid or expired — clear and trigger re-auth
-    clearStoredToken()
-    window.dispatchEvent(new CustomEvent('conductor:unauthorized'))
-    throw new Error('Unauthorized')
-  }
-
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }))
     throw new Error(err.error ?? res.statusText)

@@ -1,5 +1,5 @@
 // Lightweight i18n — no dependencies
-// Usage: import { useT, setLocale } from '../lib/i18n'
+// Usage: import { useT, setLocale } from '@/lib/i18n'
 //        const t = useT()
 //        t('save')  →  '保存' | 'Save'
 
@@ -226,16 +226,6 @@ const translations = {
 
     // Loading prompt
     loadingPrompt: '加载中...',
-
-    // Auth / login
-    loginSubtitle: '输入访问令牌以继续',
-    accessToken: '访问令牌',
-    tokenPlaceholder: '粘贴你的访问令牌',
-    tokenRequired: '请输入访问令牌',
-    tokenInvalid: '令牌无效，请检查后重试',
-    verifying: '验证中…',
-    login: '进入',
-    tokenHint: '运行 conductor auth token 生成令牌',
   },
 
   en: {
@@ -445,16 +435,6 @@ const translations = {
 
     // Loading prompt
     loadingPrompt: 'Loading...',
-
-    // Auth / login
-    loginSubtitle: 'Enter your access token to continue',
-    accessToken: 'Access token',
-    tokenPlaceholder: 'Paste your access token',
-    tokenRequired: 'Please enter an access token',
-    tokenInvalid: 'Invalid token, please check and try again',
-    verifying: 'Verifying…',
-    login: 'Continue',
-    tokenHint: 'Run conductor auth token to generate a token',
   },
 } as const
 

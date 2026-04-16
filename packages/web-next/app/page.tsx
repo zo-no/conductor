@@ -1,25 +1,24 @@
+'use client'
+
 import { useCallback, useEffect, useState } from 'react'
 import type { Project, ProjectsView, Task } from '@conductor/types'
-import { api } from './lib/api'
-import { checkAuthRequired, getStoredToken } from './lib/auth'
-import { useLocale, useT } from './lib/i18n'
-import { useSSE } from './hooks/useSSE'
-import { useWindowWidth } from './hooks/useWindowWidth'
-import { useSwipe } from './hooks/useSwipe'
-import { Sidebar, ALL_PROJECTS_ID } from './components/layout/Sidebar'
-import { Timeline } from './components/tasks/Timeline'
-import { TaskDetail } from './components/tasks/TaskDetail'
-import { TaskForm } from './components/tasks/TaskForm'
-import { ProjectSettings } from './components/projects/ProjectSettings'
-import { SystemPromptDialog } from './components/projects/SystemPromptDialog'
-import { PromptDialog } from './components/ui/Dialog'
-import { LoginPage } from './components/auth/LoginPage'
+import { api } from '@/lib/api'
+import { useLocale, useT } from '@/lib/i18n'
+import { useSSE } from '@/hooks/useSSE'
+import { useWindowWidth } from '@/hooks/useWindowWidth'
+import { useSwipe } from '@/hooks/useSwipe'
+import { Sidebar, ALL_PROJECTS_ID } from '@/components/layout/Sidebar'
+import { Timeline } from '@/components/tasks/Timeline'
+import { TaskDetail } from '@/components/tasks/TaskDetail'
+import { TaskForm } from '@/components/tasks/TaskForm'
+import { ProjectSettings } from '@/components/projects/ProjectSettings'
+import { SystemPromptDialog } from '@/components/projects/SystemPromptDialog'
+import { PromptDialog } from '@/components/ui/Dialog'
 
 type AssigneeTab = 'all' | 'human' | 'ai'
 
 export default function App() {
   const t = useT()
-  const [authState, setAuthState] = useState<'checking' | 'login' | 'ok'>('checking')
   const [projectsView, setProjectsView] = useState<ProjectsView>({ groups: [], ungrouped: [] })
   // flat list for backward compat (task filtering, etc.)
   const projects: Project[] = [...projectsView.groups.flatMap(g => g.projects), ...projectsView.ungrouped]
@@ -50,30 +49,6 @@ export default function App() {
   const windowWidth = useWindowWidth()
   const isMobile = windowWidth < 768
 
-  // Auth check on mount
-  useEffect(() => {
-    checkAuthRequired().then(required => {
-      if (!required) {
-        setAuthState('ok')
-        return
-      }
-      const token = getStoredToken()
-      if (token) {
-        setAuthState('ok')
-      } else {
-        setAuthState('login')
-      }
-    })
-
-    // Listen for 401 events from api.ts
-    const handle401 = () => {
-      setAuthState('login')
-      setLoading(true)
-    }
-    window.addEventListener('conductor:unauthorized', handle401)
-    return () => window.removeEventListener('conductor:unauthorized', handle401)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
   // Load projects view (grouped)
   const loadProjects = useCallback(() => {
     return api.projects.view().then(view => {
@@ -83,7 +58,6 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (authState !== 'ok') return
     loadProjects().then(ps => {
       if (ps.length > 0 && !selectedProjectId) setSelectedProjectId(ps[0].id)
     }).finally(() => setLoading(false))
@@ -205,24 +179,6 @@ export default function App() {
   }
 
   const projectTasks = tasks
-
-  // Auth states
-  if (authState === 'checking') {
-    return (
-      <div className="h-screen flex items-center justify-center text-gray-400 text-sm">
-        {t('loading')}
-      </div>
-    )
-  }
-
-  if (authState === 'login') {
-    return (
-      <LoginPage onSuccess={() => {
-        setAuthState('ok')
-        setLoading(true)
-      }} />
-    )
-  }
 
   if (loading) {
     return (
