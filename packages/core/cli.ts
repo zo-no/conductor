@@ -4,6 +4,7 @@ import { registerProjectCommands } from './src/controllers/cli/projects'
 import { registerGroupCommands } from './src/controllers/cli/groups'
 import { registerTaskCommands } from './src/controllers/cli/tasks'
 import { registerPromptCommands } from './src/controllers/cli/prompts'
+import { registerTtsCommands } from './src/controllers/cli/tts'
 
 const program = new Command()
   .name('conductor')
@@ -14,6 +15,7 @@ registerProjectCommands(program)
 registerGroupCommands(program)
 registerTaskCommands(program)
 registerPromptCommands(program)
+registerTtsCommands(program)
 
 program
   .command('daemon')
@@ -110,53 +112,93 @@ program
   .description('show a concise intent→command reference for AI agents')
   .action(() => {
     const ref = {
-      _doc: 'Conductor CLI quick reference for AI agents. Read what you need, look up full syntax with: conductor <command> --help',
-      _full_docs: 'docs/integration.md (workflows) | docs/cli-api.md (full reference)',
-      _install: 'git clone https://github.com/zo-no/conductor ~/conductor && cd ~/conductor && pnpm install && pnpm install:cli',
+      _doc: 'Conductor CLI — AI agent quick reference. All commands support --json. Full syntax: conductor <cmd> --help | Full docs: docs/integration.md',
+      _note: 'CLI task run = SYNCHRONOUS (blocks). HTTP POST /api/tasks/:id/run = ASYNC (poll for status).',
       _quickstart: [
-        '1. conductor daemon start',
-        '2. conductor project list --json   # find your project id',
-        '3. conductor task create --title "..." --project <id> --assignee ai --kind once --executor-kind ai_prompt --prompt "..." --json',
-        '4. conductor task run <task-id> --json   # synchronous — blocks until done',
-        '5. conductor task logs <task-id> --json',
+        'conductor daemon start',
+        'conductor project list --json',
+        'conductor task create --title "..." --project <id> --assignee ai --kind once --executor-kind ai_prompt --prompt "..." --json',
+        'conductor task run <id> --json   # blocks until done',
+        'conductor task logs <id> --json',
       ],
-      _note_sync_vs_async: 'CLI `task run` is SYNCHRONOUS (blocks until done). HTTP POST /api/tasks/:id/run is ASYNC (returns immediately, poll GET /api/tasks/:id for status).',
-      intents: {
-        'list projects': 'conductor project list --json',
-        'create project': 'conductor project create --name "<name>" [--goal "<goal>"] [--work-dir "<path>"] --json',
-        'list tasks': 'conductor task list --project <id> [--status <status>] [--assignee ai|human] --json',
-        'get task': 'conductor task get <id> --json',
-        'create ai task (one-time)': 'conductor task create --title "<title>" --project <id> --assignee ai --kind once --executor-kind ai_prompt --prompt "<prompt>" --json',
-        'create ai task (recurring)': 'conductor task create --title "<title>" --project <id> --assignee ai --kind recurring --cron "<expr>" --executor-kind ai_prompt --prompt "<prompt>" --json',
-        'create ai task (scheduled once)': 'conductor task create --title "<title>" --project <id> --assignee ai --kind scheduled --scheduled-at "<ISO8601>" --executor-kind ai_prompt --prompt "<prompt>" --json',
-        'create human task (wait for human)': 'conductor task create --title "<title>" --project <id> --assignee human --kind once --instructions "<what human should do, include: conductor task done <id> --output ...>" --json',
-        'create task that waits for another': 'conductor task create ... --depends-on <prerequisite-task-id> --json',
-        'run ai task now': 'conductor task run <id> --json',
-        'mark human task done': 'conductor task done <id> [--output "<result that becomes {lastOutput}>"] --json',
-        'cancel task': 'conductor task cancel <id> --json',
-        'update task prompt or cron': 'conductor task update <id> [--prompt "<new>"] [--cron "<expr>"] [--title "<new>"] --json',
-        'disable/enable task': 'conductor task update <id> --disable|--enable --json',
-        'delete task': 'conductor task delete <id> --json',
-        'view execution history': 'conductor task logs <id> [--limit 20] --json',
-        'view audit trail': 'conductor task ops <id> [--limit 20] --json',
-        'get/set system prompt': 'conductor prompt get --json | conductor prompt set "<content>"',
-        'get/set project prompt': 'conductor prompt get --project <id> --json | conductor prompt set "<content>" --project <id>',
-        'check daemon': 'conductor daemon status',
-        'list groups with projects': 'conductor group list --json',
-        'create group': 'conductor group create --name "<name>" [--collapsed] [--created-by ai] --json',
-        'update group': 'conductor group update <id> [--name "<name>"] [--collapse|--expand] --json',
-        'delete group (projects move to ungrouped)': 'conductor group delete <id> --json',
-        'reorder groups': 'conductor group reorder <id1> <id2> <id3> ... --json',
-        'add project to group': 'conductor project update <project-id> --group <group-id> --json',
-        'remove project from group': 'conductor project update <project-id> --no-group --json',
-        'hide project from sidebar': 'conductor project update <project-id> --no-pin --json',
-        'show project in sidebar': 'conductor project update <project-id> --pin --json',
-        'reorder projects in group': 'conductor group reorder-projects <group-id> <proj-id1> <proj-id2> ... --json',
-        'reorder ungrouped projects': 'conductor project reorder-ungrouped <proj-id1> <proj-id2> ... --json',
+
+      // ── Tasks ─────────────────────────────────────────────────────────────
+      tasks: {
+        list:        'conductor task list --project <id> [--assignee ai|human] [--status pending|running|done|failed|blocked|cancelled] --json',
+        get:         'conductor task get <id> --json',
+        logs:        'conductor task logs <id> [--limit 20] --json',
+        ops:         'conductor task ops <id> [--limit 20] --json   # audit trail',
+        run:         'conductor task run <id> --json   # SYNC: blocks until done',
+        done:        'conductor task done <id> [--output "<text→{lastOutput}>"] --json   # human tasks only',
+        cancel:      'conductor task cancel <id> --json',
+        delete:      'conductor task delete <id> --json',
+        update:      'conductor task update <id> [--title ""] [--prompt ""] [--cron ""] [--enable|--disable] [--voice-notice|--no-voice-notice] [--speech-text ""] --json',
+        'create: ai once':      'conductor task create --title "<t>" --project <id> --assignee ai --kind once --executor-kind ai_prompt --prompt "<p>" [--depends-on <id>] [--review-on-complete] [--voice-notice [--speech-text "<text>"]] --json',
+        'create: ai recurring': 'conductor task create --title "<t>" --project <id> --assignee ai --kind recurring --cron "<expr>" --executor-kind ai_prompt --prompt "<p>" --json',
+        'create: ai scheduled': 'conductor task create --title "<t>" --project <id> --assignee ai --kind scheduled --scheduled-at "<ISO8601>" --executor-kind ai_prompt --prompt "<p>" --json',
+        'create: ai script':    'conductor task create --title "<t>" --project <id> --assignee ai --kind once --executor-kind script --script "<cmd>" [--work-dir "<dir>"] --json',
+        'create: ai http':      'conductor task create --title "<t>" --project <id> --assignee ai --kind once --executor-kind http --http-url "<url>" --http-method POST [--http-body "<json>"] --json',
+        'create: human (checkpoint)': 'conductor task create --title "<t>" --project <id> --assignee human --kind once --instructions "<tell human what to do; include: conductor task done <id> --output ...>" [--depends-on <id>] --json',
       },
-      prompt_placeholders: ['{date}', '{datetime}', '{taskTitle}', '{taskDescription}', '{projectName}', '{lastOutput}', '{customKey}'],
-      task_status_values: ['pending', 'running', 'done', 'failed', 'blocked', 'cancelled'],
-      executor_kinds: ['ai_prompt', 'script', 'http'],
+
+      // ── Projects ──────────────────────────────────────────────────────────
+      projects: {
+        list:     'conductor project list --json',
+        get:      'conductor project get <id> --json',
+        create:   'conductor project create --name "<name>" [--goal "<goal>"] [--work-dir "<path>"] [--created-by ai] --json',
+        update:   'conductor project update <id> [--name ""] [--goal ""] [--work-dir ""] [--group <gid>|--no-group] [--pin|--no-pin] --json',
+        archive:  'conductor project archive <id> --json',
+        unarchive:'conductor project unarchive <id> --json',
+        delete:   'conductor project delete <id> --json',
+        'reorder ungrouped': 'conductor project reorder-ungrouped <id1> <id2> ... --json',
+      },
+
+      // ── Groups ────────────────────────────────────────────────────────────
+      groups: {
+        list:    'conductor group list --json   # includes projects array per group',
+        get:     'conductor group get <id> --json',
+        create:  'conductor group create --name "<name>" [--collapsed] [--created-by ai] --json',
+        update:  'conductor group update <id> [--name ""] [--collapse|--expand] --json',
+        delete:  'conductor group delete <id> --json   # projects move to ungrouped',
+        reorder: 'conductor group reorder <id1> <id2> ... --json',
+        'reorder projects': 'conductor group reorder-projects <gid> <pid1> <pid2> ... --json',
+      },
+
+      // ── Prompts ───────────────────────────────────────────────────────────
+      prompts: {
+        'get system':   'conductor prompt get --json',
+        'set system':   'conductor prompt set "<content>"',
+        'delete system':'conductor prompt delete',
+        'get project':  'conductor prompt get --project <id> --json',
+        'set project':  'conductor prompt set "<content>" --project <id>',
+      },
+
+      // ── TTS / Voice ───────────────────────────────────────────────────────
+      tts: {
+        status:  'conductor tts status --json   # → {provider, configured, details}',
+        config:  'conductor tts config --provider xfyun --app-id <id> --api-key <key> --api-secret <secret> [--voice x4_xiaoyan] [--speed 50] [--volume 50]',
+        'config say': 'conductor tts config --provider say   # macOS fallback, no credentials needed',
+        test:    'conductor tts test "<text>"',
+        'voice notice on': 'conductor task update <id> --voice-notice [--speech-text "<spoken when done/failed>"] --json',
+        'voice notice off':'conductor task update <id> --no-voice-notice --json',
+      },
+
+      // ── Daemon / Auth / Info ──────────────────────────────────────────────
+      system: {
+        'daemon start':  'conductor daemon start',
+        'daemon status': 'conductor daemon status',
+        'daemon stop':   'conductor daemon stop',
+        'auth enable':   'conductor auth token   # generates token, enables auth',
+        'auth status':   'conductor auth status',
+        'auth disable':  'conductor auth disable',
+        info:            'conductor info --json',
+      },
+
+      // ── Reference ─────────────────────────────────────────────────────────
+      prompt_placeholders: '{date} {datetime} {taskTitle} {taskDescription} {projectName} {lastOutput} {customKey}',
+      task_status: 'pending | running | done | failed | blocked | cancelled',
+      executor_kinds: 'ai_prompt | script | http',
+      voice_notice_tip: 'Set --speech-text to something meaningful, e.g. "分析完成，发现 3 个异常" not just "任务完成"',
     }
     console.log(JSON.stringify(ref, null, 2))
   })

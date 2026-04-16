@@ -6,6 +6,7 @@ import { createTaskOp } from '../models/task-ops'
 import { createTask } from '../models/tasks'
 import { executeTask } from './executor'
 import { emit } from './events'
+import { speak } from './tts'
 
 const TAG = '[scheduler]'
 
@@ -126,6 +127,13 @@ export async function runTask(
           nextRunAt: job?.nextRun()?.toISOString(),
         },
       })
+    }
+
+    // voiceNotice: speak on done or failed
+    if (fresh.executorOptions?.voiceNotice?.enabled) {
+      const defaultText = result.success ? `${fresh.title} 已完成` : `${fresh.title} 执行失败`
+      const speechText = fresh.executorOptions.voiceNotice.speechText || defaultText
+      speak(speechText).catch(() => {})  // fire-and-forget，不阻塞主流程
     }
 
     // reviewOnComplete: create human review task

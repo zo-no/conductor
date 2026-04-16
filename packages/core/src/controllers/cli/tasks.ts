@@ -94,6 +94,8 @@ export function registerTaskCommands(program: Command): void {
     .option('--include-last-output', 'inject last output as {lastOutput}')
     .option('--custom-var <kv>', 'key=value custom variable (repeatable)', collect, [])
     .option('--review-on-complete', 'create human review task after completion')
+    .option('--voice-notice', 'speak a voice notification when task completes (AI tasks only)')
+    .option('--speech-text <text>', 'custom speech text for voice notification')
     .option('--depends-on <id>', 'prerequisite task id')
     .option('--instructions <text>', 'waiting instructions for human tasks')
     .option('--source-task <id>', 'source AI task id (for human tasks created by AI)')
@@ -133,11 +135,14 @@ export function registerTaskCommands(program: Command): void {
         customVars[k] = rest.join('=')
       }
       const executorOptions: ExecutorOptions | undefined =
-        opts.includeLastOutput || opts.reviewOnComplete || Object.keys(customVars).length
+        opts.includeLastOutput || opts.reviewOnComplete || Object.keys(customVars).length || opts.voiceNotice
           ? {
               includeLastOutput: opts.includeLastOutput ?? false,
               reviewOnComplete: opts.reviewOnComplete ?? false,
               customVars: Object.keys(customVars).length ? customVars : undefined,
+              voiceNotice: opts.voiceNotice
+                ? { enabled: true, speechText: opts.speechText }
+                : undefined,
             }
           : undefined
 
@@ -171,6 +176,9 @@ export function registerTaskCommands(program: Command): void {
     .option('--prompt <prompt>')
     .option('--enable', 'enable the task')
     .option('--disable', 'disable the task')
+    .option('--voice-notice', 'enable voice notification on completion')
+    .option('--no-voice-notice', 'disable voice notification')
+    .option('--speech-text <text>', 'custom speech text for voice notification')
     .option('--json', 'output as JSON')
     .action((id, opts) => {
       ensureDb()
@@ -188,6 +196,25 @@ export function registerTaskCommands(program: Command): void {
       }
       if (opts.prompt && t!.executor?.kind === 'ai_prompt') {
         updates.executor = { ...t!.executor, prompt: opts.prompt }
+      }
+
+      // voice notice
+      if (opts.voiceNotice === true) {
+        updates.executorOptions = {
+          ...t!.executorOptions,
+          voiceNotice: { enabled: true, speechText: opts.speechText ?? t!.executorOptions?.voiceNotice?.speechText },
+        }
+      } else if (opts.voiceNotice === false) {
+        updates.executorOptions = {
+          ...t!.executorOptions,
+          voiceNotice: { enabled: false },
+        }
+      } else if (opts.speechText) {
+        // only update speech text, keep enabled state
+        updates.executorOptions = {
+          ...t!.executorOptions,
+          voiceNotice: { enabled: t!.executorOptions?.voiceNotice?.enabled ?? true, speechText: opts.speechText },
+        }
       }
 
       const updated = updateTask(id, updates)!

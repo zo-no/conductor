@@ -3,6 +3,19 @@
 > 本文面向需要与 Conductor 交互的 **AI agent** 和外部程序。  
 > 核心原则：**按需查阅，不要一次读完所有内容。**
 
+## 快速找命令
+
+```bash
+conductor help-ai   # 输出 JSON 速查表，覆盖所有命令，分 tasks / projects / groups / prompts / tts / system 六类
+```
+
+不确定某个命令的参数：
+
+```bash
+conductor task --help
+conductor task create --help
+```
+
 ---
 
 ## 安装
@@ -466,6 +479,31 @@ Prompt 和脚本命令中可使用以下变量，执行时自动替换：
 | `{projectName}` | 所属项目名称 |
 | `{lastOutput}` | 上一个任务的 completionOutput（human 任务完成时填写）|
 | `{自定义}` | `--custom-var key=value` 定义的变量 |
+
+---
+
+## 语音通知
+
+AI 任务完成或失败时可自动播报语音。在创建/更新任务时通过 `--voice-notice` 开启：
+
+```bash
+conductor task create --title "生成报告" ... \
+  --voice-notice \
+  --speech-text "报告已生成，请查收"
+
+conductor task update <id> --voice-notice --speech-text "数据分析完成"
+conductor task update <id> --no-voice-notice
+```
+
+TTS 配置（讯飞 / macOS say）：
+
+```bash
+conductor tts status --json
+conductor tts config --provider xfyun --app-id <id> --api-key <key> --api-secret <secret>
+conductor tts test "测试播报"
+```
+
+详见 [voice-notice.md](voice-notice.md)。
 
 ---
 

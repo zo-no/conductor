@@ -162,8 +162,14 @@
   customVars?: Record<string, string>  // 自定义占位符变量，注入 prompt
   reviewOnComplete?: boolean           // 执行完成后自动创建人类 review 任务
   continueSession?: boolean            // 保留字段，暂未启用
+  voiceNotice?: {
+    enabled: boolean                   // 是否在任务完成/失败时播报语音
+    speechText?: string                // 自定义播报文本，留空则用默认文案
+  }
 }
 ```
+
+> 语音通知配置详见 [docs/voice-notice.md](./voice-notice.md)
 
 ### 占位符变量
 

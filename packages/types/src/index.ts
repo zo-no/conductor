@@ -131,10 +131,16 @@ export interface HttpExecutor {
 
 export type TaskExecutor = ScriptExecutor | AiPromptExecutor | HttpExecutor
 
+export interface VoiceNoticeOptions {
+  enabled: boolean
+  speechText?: string  // 留空则用默认文案："{taskTitle} 已完成" / "{taskTitle} 执行失败"
+}
+
 export interface ExecutorOptions {
   continueSession?: boolean                // resume 上次对话 session（默认 false）
   customVars?: Record<string, string>      // 用户自定义占位符变量
   reviewOnComplete?: boolean               // 执行完创建人类 review 任务
+  voiceNotice?: VoiceNoticeOptions         // 执行完播报语音通知
 }
 
 // TaskLog
