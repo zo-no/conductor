@@ -23,7 +23,11 @@ app.use('*', cors({
   credentials: true,
 }))
 
-// Auth middleware — protects all /api/* routes
+// Public endpoints — must be registered BEFORE the auth middleware
+app.get('/health', (c) => c.json({ ok: true, pid: process.pid }))
+app.get('/api/auth/status', (c) => c.json({ enabled: isAuthEnabled() }))
+
+// Auth middleware — protects all /api/* routes (registered after public endpoints)
 app.use('/api/*', authMiddleware)
 
 app.route('/api/projects', projectsRouter)
@@ -34,11 +38,6 @@ app.route('/api/tasks', tasksRouter)
 app.route('/api/tasks/:id/runs', runsRouter)
 app.route('/api/prompts', promptsRouter)
 app.route('/api/events', eventsRouter)
-
-app.get('/health', (c) => c.json({ ok: true, pid: process.pid }))
-
-// Auth status endpoint (public — used by web UI to check if auth is required)
-app.get('/auth/status', (c) => c.json({ enabled: isAuthEnabled() }))
 
 // Boot sequence
 initDb()
