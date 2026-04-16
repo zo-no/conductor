@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Project, Task } from '@conductor/types'
+import type { Project, ProjectsView, Task } from '@conductor/types'
 import { api } from './lib/api'
 import { useSSE } from './hooks/useSSE'
 import { useWindowWidth } from './hooks/useWindowWidth'
@@ -15,7 +15,9 @@ import { PromptDialog } from './components/ui/Dialog'
 type AssigneeTab = 'all' | 'human' | 'ai'
 
 export default function App() {
-  const [projects, setProjects] = useState<Project[]>([])
+  const [projectsView, setProjectsView] = useState<ProjectsView>({ groups: [], ungrouped: [] })
+  // flat list for backward compat (task filtering, etc.)
+  const projects: Project[] = [...projectsView.groups.flatMap(g => g.projects), ...projectsView.ungrouped]
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => {
     return new URLSearchParams(window.location.search).get('project')
@@ -43,11 +45,11 @@ export default function App() {
   const windowWidth = useWindowWidth()
   const isMobile = windowWidth < 768
 
-  // Load projects
+  // Load projects view (grouped)
   const loadProjects = useCallback(() => {
-    return api.projects.list().then(ps => {
-      setProjects(ps)
-      return ps
+    return api.projects.view().then(view => {
+      setProjectsView(view)
+      return [...view.groups.flatMap(g => g.projects), ...view.ungrouped]
     })
   }, [])
 
@@ -245,7 +247,7 @@ export default function App() {
       <div className="h-screen flex bg-white overflow-hidden relative">
         {/* Sidebar — collapsible */}
         <Sidebar
-          projects={projects}
+          projectsView={projectsView}
           selectedProjectId={selectedProjectId}
           tasks={tasks}
           collapsed={sidebarCollapsed}
@@ -254,6 +256,7 @@ export default function App() {
           onNewProject={handleNewProject}
           onSettings={setSettingsProject}
           onSystemPrompt={() => setShowSystemPrompt(true)}
+          onReloadProjects={loadProjects}
         />
 
         {/* Main timeline */}

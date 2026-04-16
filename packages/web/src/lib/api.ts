@@ -1,4 +1,4 @@
-import type { Project, Task, TaskLog, TaskOp } from '@conductor/types'
+import type { Project, Task, TaskLog, TaskOp, ProjectGroup, ProjectsView } from '@conductor/types'
 
 export interface TaskRun {
   id: string
@@ -41,14 +41,31 @@ export interface SystemPrompt {
 export const api = {
   projects: {
     list: () => request<Project[]>('/projects'),
+    view: () => request<ProjectsView>('/view/projects'),
     get: (id: string) => request<Project>(`/projects/${id}`),
-    create: (data: { name: string; goal?: string; workDir?: string }) =>
+    create: (data: { name: string; goal?: string; workDir?: string; groupId?: string; pinned?: boolean }) =>
       request<Project>('/projects', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Partial<Project>) =>
+    update: (id: string, data: Partial<Project> & { groupId?: string | null }) =>
       request<Project>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => request<{ ok: boolean }>(`/projects/${id}`, { method: 'DELETE' }),
     archive: (id: string) => request<Project>(`/projects/${id}/archive`, { method: 'POST' }),
     unarchive: (id: string) => request<Project>(`/projects/${id}/unarchive`, { method: 'POST' }),
+    reorderUngrouped: (ids: string[]) =>
+      request<{ ok: boolean }>('/ungrouped/reorder', { method: 'POST', body: JSON.stringify({ ids }) }),
+  },
+
+  groups: {
+    list: () => request<(ProjectGroup & { projects: Project[] })[]>('/groups'),
+    get: (id: string) => request<ProjectGroup & { projects: Project[] }>(`/groups/${id}`),
+    create: (data: { name: string; collapsed?: boolean; createdBy?: string }) =>
+      request<ProjectGroup>('/groups', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: { name?: string; collapsed?: boolean }) =>
+      request<ProjectGroup>(`/groups/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) => request<{ ok: boolean }>(`/groups/${id}`, { method: 'DELETE' }),
+    reorder: (ids: string[]) =>
+      request<{ ok: boolean }>('/groups/reorder', { method: 'POST', body: JSON.stringify({ ids }) }),
+    reorderProjects: (groupId: string, ids: string[]) =>
+      request<{ ok: boolean }>(`/groups/${groupId}/projects/reorder`, { method: 'POST', body: JSON.stringify({ ids }) }),
   },
 
   prompts: {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Project } from '@conductor/types'
+import type { Project, ProjectGroup } from '@conductor/types'
 import { api } from '../../lib/api'
 import { ConfirmDialog } from '../ui/Dialog'
 
@@ -13,6 +13,9 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
   const [name, setName] = useState(project.name)
   const [goal, setGoal] = useState(project.goal ?? '')
   const [workDir, setWorkDir] = useState(project.workDir ?? '')
+  const [groupId, setGroupId] = useState<string>(project.groupId ?? '')
+  const [pinned, setPinned] = useState(project.pinned !== false)
+  const [groups, setGroups] = useState<ProjectGroup[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -22,6 +25,10 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
   const [promptContent, setPromptContent] = useState('')
   const [promptLoaded, setPromptLoaded] = useState(false)
   const promptLoadedRef = useRef(false)
+
+  useEffect(() => {
+    api.groups.list().then(gs => setGroups(gs)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (promptLoadedRef.current) return
@@ -43,6 +50,8 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
         name: name.trim(),
         goal: goal.trim() || undefined,
         workDir: workDir.trim() || undefined,
+        groupId: groupId || undefined,
+        pinned,
       })
       // Save prompt
       if (promptLoaded) {
@@ -168,6 +177,40 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
                 placeholder="工作目录  ~/projects/xxx"
                 className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 font-mono text-xs"
               />
+
+              {/* Group */}
+              {groups.length > 0 && (
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">所属分组</label>
+                  <select
+                    value={groupId}
+                    onChange={e => setGroupId(e.target.value)}
+                    className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 bg-white"
+                  >
+                    <option value="">未分组</option>
+                    {groups.map(g => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Pinned */}
+              <label className="flex items-center justify-between cursor-pointer select-none">
+                <span className="text-sm text-gray-600">固定显示在侧边栏</span>
+                <div
+                  onClick={() => setPinned(v => !v)}
+                  className={[
+                    'relative w-9 h-5 rounded-full transition-colors duration-200',
+                    pinned ? 'bg-blue-500' : 'bg-gray-200',
+                  ].join(' ')}
+                >
+                  <span className={[
+                    'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200',
+                    pinned ? 'translate-x-4' : 'translate-x-0.5',
+                  ].join(' ')} />
+                </div>
+              </label>
 
               {/* Prompt */}
               <div>

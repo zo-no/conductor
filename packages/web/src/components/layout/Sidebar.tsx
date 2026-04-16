@@ -1,9 +1,12 @@
-import type { Project, Task } from '@conductor/types'
+import { useState } from 'react'
+import type { Project, ProjectGroup, ProjectsView, Task } from '@conductor/types'
+import { api } from '../../lib/api'
+import { PromptDialog, ConfirmDialog } from '../ui/Dialog'
 
 export const ALL_PROJECTS_ID = '__all__'
 
 interface Props {
-  projects: Project[]
+  projectsView: ProjectsView
   selectedProjectId: string | null
   tasks: Task[]
   collapsed: boolean
@@ -12,6 +15,7 @@ interface Props {
   onNewProject: () => void
   onSettings: (project: Project) => void
   onSystemPrompt: () => void
+  onReloadProjects: () => void
 }
 
 const GearIcon = () => (
@@ -21,10 +25,244 @@ const GearIcon = () => (
   </svg>
 )
 
+const ChevronIcon = ({ open }: { open: boolean }) => (
+  <svg
+    className={`w-3 h-3 transition-transform flex-shrink-0 ${open ? 'rotate-90' : ''}`}
+    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+  </svg>
+)
+
+// ─── Project item ─────────────────────────────────────────────────────────────
+
+function ProjectItem({
+  project, isSelected, collapsed, pendingCount, onSelect, onSettings,
+}: {
+  project: Project
+  isSelected: boolean
+  collapsed: boolean
+  pendingCount: number
+  onSelect: (id: string) => void
+  onSettings: (p: Project) => void
+}) {
+  if (collapsed) {
+    return (
+      <div className="relative flex justify-center py-0.5">
+        <button
+          onClick={() => onSelect(project.id)}
+          title={project.name}
+          className={[
+            'w-8 h-8 rounded-md flex items-center justify-center text-xs font-semibold transition-colors',
+            isSelected ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:bg-white/70 hover:text-gray-800',
+          ].join(' ')}
+        >
+          {project.name.slice(0, 1)}
+        </button>
+        {pendingCount > 0 && (
+          <span className="absolute top-0.5 right-1 w-1.5 h-1.5 rounded-full bg-red-400" />
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="group flex items-center px-1">
+      <button
+        onClick={() => onSelect(project.id)}
+        className={[
+          'flex-1 flex items-center justify-between px-3 py-1.5 rounded-md text-left transition-colors min-w-0',
+          isSelected ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:bg-white/70 hover:text-gray-800',
+        ].join(' ')}
+      >
+        <span className="text-sm truncate">{project.name}</span>
+        {pendingCount > 0 && (
+          <span className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0 ml-1" title={`${pendingCount} 条待处理`} />
+        )}
+      </button>
+      <button
+        onClick={e => { e.stopPropagation(); onSettings(project) }}
+        className="opacity-0 group-hover:opacity-100 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-md transition-opacity flex-shrink-0"
+        title="项目设置"
+      >
+        <GearIcon />
+      </button>
+    </div>
+  )
+}
+
+// ─── Group section ────────────────────────────────────────────────────────────
+
+function GroupSection({
+  group, selectedProjectId, collapsed, pendingByProject,
+  onSelect, onSettings, onReload,
+}: {
+  group: ProjectGroup & { projects: Project[] }
+  selectedProjectId: string | null
+  collapsed: boolean
+  pendingByProject: Map<string, number>
+  onSelect: (id: string) => void
+  onSettings: (p: Project) => void
+  onReload: () => void
+}) {
+  const [open, setOpen] = useState(!group.collapsed)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [showGroupSettings, setShowGroupSettings] = useState(false)
+  const [editingName, setEditingName] = useState(group.name)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const pinned = group.projects.filter(p => p.pinned !== false)
+  const unpinned = group.projects.filter(p => p.pinned === false)
+
+  async function handleSaveGroup() {
+    await api.groups.update(group.id, { name: editingName })
+    setShowGroupSettings(false)
+    onReload()
+  }
+
+  async function handleDeleteGroup() {
+    await api.groups.delete(group.id)
+    setConfirmDelete(false)
+    setShowGroupSettings(false)
+    onReload()
+  }
+
+  if (collapsed) {
+    return (
+      <div className="py-1 border-b border-gray-100/60 last:border-0">
+        {group.projects.map(p => (
+          <ProjectItem
+            key={p.id}
+            project={p}
+            isSelected={selectedProjectId === p.id}
+            collapsed
+            pendingCount={pendingByProject.get(p.id) ?? 0}
+            onSelect={onSelect}
+            onSettings={onSettings}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`删除分组「${group.name}」？分组内项目将移到未分组。`}
+          confirmLabel="删除"
+          danger
+          onConfirm={handleDeleteGroup}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+
+      {showGroupSettings && (
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-gray-900">分组设置</h3>
+            <input
+              value={editingName}
+              onChange={e => setEditingName(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              placeholder="分组名称"
+            />
+            <div className="flex justify-between items-center pt-1">
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="text-xs text-red-400 hover:text-red-600"
+              >
+                删除分组
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowGroupSettings(false)}
+                  className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-800 rounded-md hover:bg-gray-100"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSaveGroup}
+                  className="px-3 py-1.5 text-xs font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                >
+                  保存
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="py-1 border-b border-gray-100/60 last:border-0">
+        {/* Group header */}
+        <div className="group flex items-center px-2 py-1">
+          <button
+            onClick={() => setOpen(v => !v)}
+            className="flex-1 flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-600 min-w-0"
+          >
+            <ChevronIcon open={open} />
+            <span className="truncate">{group.name}</span>
+          </button>
+          <button
+            onClick={() => { setEditingName(group.name); setShowGroupSettings(true) }}
+            className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded transition-opacity flex-shrink-0"
+            title="分组设置"
+          >
+            <GearIcon />
+          </button>
+        </div>
+
+        {open && (
+          <div className="space-y-0">
+            {pinned.map(p => (
+              <ProjectItem
+                key={p.id}
+                project={p}
+                isSelected={selectedProjectId === p.id}
+                collapsed={false}
+                pendingCount={pendingByProject.get(p.id) ?? 0}
+                onSelect={onSelect}
+                onSettings={onSettings}
+              />
+            ))}
+
+            {unpinned.length > 0 && (
+              <div className="px-1">
+                <button
+                  onClick={() => setMoreOpen(v => !v)}
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 px-3 py-1"
+                >
+                  <ChevronIcon open={moreOpen} />
+                  更多 ({unpinned.length})
+                </button>
+                {moreOpen && unpinned.map(p => (
+                  <ProjectItem
+                    key={p.id}
+                    project={p}
+                    isSelected={selectedProjectId === p.id}
+                    collapsed={false}
+                    pendingCount={pendingByProject.get(p.id) ?? 0}
+                    onSelect={onSelect}
+                    onSettings={onSettings}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+
 export function Sidebar({
-  projects, selectedProjectId, tasks, collapsed,
-  onToggleCollapse, onSelect, onNewProject, onSettings, onSystemPrompt,
+  projectsView, selectedProjectId, tasks, collapsed,
+  onToggleCollapse, onSelect, onNewProject, onSettings, onSystemPrompt, onReloadProjects,
 }: Props) {
+  const [newGroupPrompt, setNewGroupPrompt] = useState(false)
+
   // Count pending human tasks per project
   const pendingByProject = new Map<string, number>()
   for (const task of tasks) {
@@ -33,10 +271,17 @@ export function Sidebar({
     }
   }
 
-  // Hide system-created projects (e.g. proj_conductor) from normal users
-  const visible = projects.filter(p => p.createdBy !== 'system')
-  const active = visible.filter(p => !p.archived)
-  const archived = visible.filter(p => p.archived)
+  const { groups, ungrouped } = projectsView
+  // filter system projects from ungrouped
+  const visibleUngrouped = ungrouped.filter(p => p.createdBy !== 'system')
+  const archivedUngrouped = visibleUngrouped.filter(p => p.archived)
+  const activeUngrouped = visibleUngrouped.filter(p => !p.archived)
+
+  async function handleCreateGroup(name: string) {
+    setNewGroupPrompt(false)
+    await api.groups.create({ name })
+    onReloadProjects()
+  }
 
   return (
     <aside
@@ -45,14 +290,22 @@ export function Sidebar({
         collapsed ? 'w-12' : 'w-56',
       ].join(' ')}
     >
-      {/* Header: logo + collapse toggle */}
+      {newGroupPrompt && (
+        <PromptDialog
+          title="新建分组"
+          placeholder="分组名称，如「工作」"
+          confirmLabel="创建"
+          onConfirm={handleCreateGroup}
+          onCancel={() => setNewGroupPrompt(false)}
+        />
+      )}
+
+      {/* Header */}
       <div className={[
         'flex items-center border-b border-gray-100 flex-shrink-0',
         collapsed ? 'justify-center px-2 py-3' : 'justify-between px-4 py-3',
       ].join(' ')}>
-        {!collapsed && (
-          <h1 className="text-sm font-semibold text-gray-800 tracking-tight">Conductor</h1>
-        )}
+        {!collapsed && <h1 className="text-sm font-semibold text-gray-800 tracking-tight">Conductor</h1>}
         <button
           onClick={onToggleCollapse}
           className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition-colors flex-shrink-0"
@@ -70,19 +323,17 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* Project list */}
+      {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-2">
         {/* All projects entry */}
         {collapsed ? (
-          <div className="relative flex justify-center py-0.5">
+          <div className="flex justify-center py-0.5">
             <button
               onClick={() => onSelect(ALL_PROJECTS_ID)}
               title="全部"
               className={[
                 'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
-                selectedProjectId === ALL_PROJECTS_ID
-                  ? 'bg-white shadow-sm text-gray-900'
-                  : 'text-gray-400 hover:bg-white/70 hover:text-gray-700',
+                selectedProjectId === ALL_PROJECTS_ID ? 'bg-white shadow-sm text-gray-900' : 'text-gray-400 hover:bg-white/70 hover:text-gray-700',
               ].join(' ')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -91,14 +342,12 @@ export function Sidebar({
             </button>
           </div>
         ) : (
-          <div className="px-1 mb-1">
+          <div className="px-1 mb-2">
             <button
               onClick={() => onSelect(ALL_PROJECTS_ID)}
               className={[
                 'w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left transition-colors',
-                selectedProjectId === ALL_PROJECTS_ID
-                  ? 'bg-white shadow-sm text-gray-900 font-medium'
-                  : 'text-gray-500 hover:bg-white/70 hover:text-gray-700',
+                selectedProjectId === ALL_PROJECTS_ID ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-500 hover:bg-white/70 hover:text-gray-700',
               ].join(' ')}
             >
               <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -109,75 +358,56 @@ export function Sidebar({
           </div>
         )}
 
-        {!collapsed && <div className="mt-1" />}
+        {/* Groups */}
+        {groups.map(group => (
+          <GroupSection
+            key={group.id}
+            group={group}
+            selectedProjectId={selectedProjectId}
+            collapsed={collapsed}
+            pendingByProject={pendingByProject}
+            onSelect={onSelect}
+            onSettings={onSettings}
+            onReload={onReloadProjects}
+          />
+        ))}
 
-        {active.map(project => {
-          const pending = pendingByProject.get(project.id) ?? 0
-          const isSelected = selectedProjectId === project.id
-
-          if (collapsed) {
-            return (
-              <div key={project.id} className="relative flex justify-center py-0.5">
-                <button
-                  onClick={() => onSelect(project.id)}
-                  title={project.name}
-                  className={[
-                    'w-8 h-8 rounded-md flex items-center justify-center text-xs font-semibold transition-colors',
-                    isSelected
-                      ? 'bg-white shadow-sm text-gray-900'
-                      : 'text-gray-500 hover:bg-white/70 hover:text-gray-800',
-                  ].join(' ')}
-                >
-                  {project.name.slice(0, 1)}
-                </button>
-                {pending > 0 && (
-                  <span className="absolute top-0.5 right-1 w-1.5 h-1.5 rounded-full bg-red-400" />
-                )}
+        {/* Ungrouped active projects */}
+        {activeUngrouped.length > 0 && (
+          <div className={['py-1', groups.length > 0 ? 'border-b border-gray-100/60' : ''].join(' ')}>
+            {!collapsed && groups.length > 0 && (
+              <div className="px-3 pt-1 pb-0.5">
+                <span className="text-xs text-gray-300 uppercase tracking-wider">未分组</span>
               </div>
-            )
-          }
+            )}
+            {activeUngrouped.map(p => (
+              <ProjectItem
+                key={p.id}
+                project={p}
+                isSelected={selectedProjectId === p.id}
+                collapsed={collapsed}
+                pendingCount={pendingByProject.get(p.id) ?? 0}
+                onSelect={onSelect}
+                onSettings={onSettings}
+              />
+            ))}
+          </div>
+        )}
 
-          return (
-            <div key={project.id} className="group flex items-center px-1">
-              <button
-                onClick={() => onSelect(project.id)}
-                className={[
-                  'flex-1 flex items-center justify-between px-3 py-1.5 rounded-md text-left transition-colors min-w-0',
-                  isSelected
-                    ? 'bg-white shadow-sm text-gray-900 font-medium'
-                    : 'text-gray-600 hover:bg-white/70 hover:text-gray-800',
-                ].join(' ')}
-              >
-                <span className="text-sm truncate">{project.name}</span>
-                {pending > 0 && (
-                  <span className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0 ml-1" title={`${pending} 条待处理`} />
-                )}
-              </button>
-              {/* 44px touch target for gear */}
-              <button
-                onClick={e => { e.stopPropagation(); onSettings(project) }}
-                className="opacity-0 group-hover:opacity-100 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-md transition-opacity flex-shrink-0"
-                title="项目设置"
-              >
-                <GearIcon />
-              </button>
-            </div>
-          )
-        })}
-
-        {archived.length > 0 && !collapsed && (
+        {/* Archived */}
+        {archivedUngrouped.length > 0 && !collapsed && (
           <div className="mt-3 px-3">
             <span className="text-xs text-gray-300">已归档</span>
-            {archived.map(project => (
-              <div key={project.id} className="group flex items-center">
+            {archivedUngrouped.map(p => (
+              <div key={p.id} className="group flex items-center">
                 <button
-                  onClick={() => onSelect(project.id)}
+                  onClick={() => onSelect(p.id)}
                   className="flex-1 flex items-center px-3 py-1.5 rounded-md text-left text-gray-400 hover:text-gray-600 text-sm min-w-0"
                 >
-                  <span className="truncate">{project.name}</span>
+                  <span className="truncate">{p.name}</span>
                 </button>
                 <button
-                  onClick={() => onSettings(project)}
+                  onClick={() => onSettings(p)}
                   className="opacity-0 group-hover:opacity-100 w-8 h-8 flex items-center justify-center text-gray-300 hover:text-gray-500 rounded-md transition-opacity flex-shrink-0"
                 >
                   <GearIcon />
@@ -213,6 +443,13 @@ export function Sidebar({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               新建项目
+            </button>
+            <button onClick={() => setNewGroupPrompt(true)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:text-gray-700 hover:bg-white rounded-md">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              新建分组
             </button>
             <button onClick={onSystemPrompt}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:text-gray-700 hover:bg-white rounded-md">
