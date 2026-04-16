@@ -65,6 +65,7 @@ export const api = {
     delete: (id: string) => request<{ ok: boolean }>(`/projects/${id}`, { method: 'DELETE' }),
     archive: (id: string) => request<Project>(`/projects/${id}/archive`, { method: 'POST' }),
     unarchive: (id: string) => request<Project>(`/projects/${id}/unarchive`, { method: 'POST' }),
+    enableBrain: (id: string) => request<Task>(`/projects/${id}/brain`, { method: 'POST' }),
   },
 
   groups: {

@@ -22,6 +22,8 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmArchive, setConfirmArchive] = useState(false)
+  const [brainAdding, setBrainAdding] = useState(false)
+  const [brainAdded, setBrainAdded] = useState(false)
 
   // Prompt — always shown, load on mount
   const [promptContent, setPromptContent] = useState('')
@@ -40,6 +42,18 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
       .catch(() => {})
       .finally(() => setPromptLoaded(true))
   }, [project.id])
+
+  async function handleEnableBrain() {
+    setBrainAdding(true)
+    try {
+      await api.projects.enableBrain(project.id)
+      setBrainAdded(true)
+    } catch {
+      setError(t('saveFailed'))
+    } finally {
+      setBrainAdding(false)
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -213,6 +227,26 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
                   ].join(' ')} />
                 </div>
               </label>
+
+              {/* AI Brain */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm text-gray-700">{t('enableBrainLabel')}</span>
+                  <p className="text-xs text-gray-400 mt-0.5">{t('enableBrainDesc')}</p>
+                </div>
+                {brainAdded ? (
+                  <span className="text-xs text-green-600 font-medium">{t('brainEnabled')}</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleEnableBrain}
+                    disabled={brainAdding}
+                    className="text-xs px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 flex-shrink-0 ml-3"
+                  >
+                    {brainAdding ? '...' : t('enableBrain')}
+                  </button>
+                )}
+              </div>
 
               {/* Prompt */}
               <div>

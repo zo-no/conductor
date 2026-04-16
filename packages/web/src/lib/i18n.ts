@@ -157,9 +157,15 @@ const translations = {
     confirmDelete: '删除',
     confirmDeleteTask: (title: string) => `确定删除任务「${title}」？`,
 
-    // Prompt dialog
+    // New project dialog
     newProjectTitle: '新建项目',
     newProjectPlaceholder: '项目名称',
+    newProjectGoalPlaceholder: '项目目标（可选）',
+    newProjectWorkDirPlaceholder: '工作区目录（可选）~/projects/xxx',
+    enableBrainLabel: '启用 AI 大脑',
+    enableBrainDesc: '每 30 分钟自动规划任务',
+    brainEnabled: 'AI 大脑已启用',
+    enableBrain: '启用 AI 大脑',
 
     // System prompt dialog
     systemPromptTitle: '系统 Prompt',
@@ -375,9 +381,15 @@ const translations = {
     confirmDelete: 'Delete',
     confirmDeleteTask: (title: string) => `Delete task "${title}"?`,
 
-    // Prompt dialog
+    // New project dialog
     newProjectTitle: 'New Project',
     newProjectPlaceholder: 'Project name',
+    newProjectGoalPlaceholder: 'Goal (optional)',
+    newProjectWorkDirPlaceholder: 'Working directory (optional) ~/projects/xxx',
+    enableBrainLabel: 'Enable AI Brain',
+    enableBrainDesc: 'Auto-plans tasks every 30 minutes',
+    brainEnabled: 'AI Brain enabled',
+    enableBrain: 'Enable AI Brain',
 
     // System prompt dialog
     systemPromptTitle: 'System Prompt',
