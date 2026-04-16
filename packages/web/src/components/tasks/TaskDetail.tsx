@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { useT } from '../../lib/i18n'
 import { RunViewer } from './RunViewer'
 import { ConfirmDialog } from '../ui/Dialog'
+import { Markdown } from '../ui/Markdown'
 
 interface Props {
   task: Task
@@ -321,7 +322,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
             {task.description && (
               <div>
                 <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('description')}</label>
-                <p className="mt-1 text-sm text-gray-700">{task.description}</p>
+                <Markdown className="mt-1 text-gray-700">{task.description}</Markdown>
               </div>
             )}
 
@@ -340,7 +341,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
             {task.waitingInstructions && (
               <div>
                 <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('waitingInstructions')}</label>
-                <p className="mt-1 text-sm text-gray-700 bg-orange-50 rounded p-2">{task.waitingInstructions}</p>
+                <Markdown className="mt-1 text-gray-700 bg-orange-50 rounded p-2">{task.waitingInstructions}</Markdown>
               </div>
             )}
 
@@ -364,7 +365,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
                 <p className="mt-1 text-xs text-gray-500 font-mono bg-gray-50 rounded p-2">
                   {task.executor.kind}
                   {task.executor.kind === 'ai_prompt' && (
-                    <span className="block mt-1 text-gray-600 font-sans whitespace-pre-wrap">{task.executor.prompt}</span>
+                    <Markdown className="mt-1 text-gray-600 font-sans">{task.executor.prompt}</Markdown>
                   )}
                   {task.executor.kind === 'script' && (
                     <span className="block mt-1">{task.executor.command}</span>
@@ -400,7 +401,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
             {task.completionOutput && (
               <div>
                 <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('completionOutput')}</label>
-                <p className="mt-1 text-sm text-gray-700 bg-gray-50 rounded p-2 whitespace-pre-wrap">{task.completionOutput}</p>
+                <Markdown className="mt-1 text-gray-700 bg-gray-50 rounded p-2">{task.completionOutput}</Markdown>
               </div>
             )}
           </div>
