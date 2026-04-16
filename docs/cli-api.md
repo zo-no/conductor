@@ -75,7 +75,6 @@
   status: "pending" | "running" | "done" | "failed" | "cancelled" | "blocked"
 
   order?: number      // 展示排序（数值越小越靠前）
-  dependsOn?: string  // 前置任务 id，该任务 done 后本任务才会触发
 
   // 调度配置（kind = scheduled 或 recurring 时有效）
   scheduleConfig?: ScheduledConfig | RecurringConfig
@@ -324,8 +323,7 @@ conductor task create \
   [--review-on-complete]         # 执行完成后创建 human review 任务
   [--custom-var key=value]       # 自定义占位符，可重复传多个
 
-# 依赖与关联
-  [--depends-on <task-id>]       # 前置任务，完成后才触发本任务
+# 关联
   [--source-task <task-id>]      # 本 human 任务来自哪个 AI 任务（AI 创建时使用）
 
 # Human 任务专用
@@ -991,7 +989,6 @@ conductor version
     }
   },
 
-  "dependsOn": "task_xyz",      // 可选，前置任务 id
   "enabled": true,              // 可选，默认 true
   "createdBy": "human",         // 可选，默认 "human"
 

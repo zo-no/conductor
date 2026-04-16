@@ -1,8 +1,13 @@
 # PLAN: 项目会话功能
 
-> 状态: APPROVED
+> 状态: DRAFT（暂缓实现）
 > 创建时间: 2026-04-16
 > 关联需求: 每个项目可以创建多个对话，通过自然语言操作任务
+>
+> **设计备注（2026-04-16）：**
+> - `chat_messages.content` 改为存 JSON 数组，直接对应 Anthropic API message 格式，role 只有 `user` / `assistant`，tool_use 和 tool_result 作为 content block 内联
+> - 运行时不需要 spool 表，SSE 直接推，流结束后整体写入，断线丢弃可接受
+> - 系统 prompt 分层：固定注入（项目信息）+ 工具能力说明；任务列表不预加载，由 AI 按需 CLI 查询
 
 ---
 

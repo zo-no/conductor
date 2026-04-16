@@ -18,7 +18,7 @@ import {
 } from '../src/models/project-groups'
 import {
   createTask, getTask, listTasks, updateTask, deleteTask,
-  getBlockedByTask, getDependentTasks, reconcileRunningTasks,
+  getBlockedByTask, reconcileRunningTasks,
 } from '../src/models/tasks'
 import { createTaskLog, getTaskLogs, updateTaskLogCompleted } from '../src/models/task-logs'
 import { createTaskOp, getTaskOps } from '../src/models/task-ops'
@@ -190,11 +190,6 @@ updateTask(tBlocked.id, { status: 'blocked', blockedByTaskId: tBlocker.id })
 const blockedList = getBlockedByTask(tBlocker.id)
 assert('getBlockedByTask', blockedList.length === 1 && blockedList[0].id === tBlocked.id)
 
-// dependsOn
-const tDep = createTask({ projectId: p1.id, title: 'Dependent', assignee: 'ai', kind: 'once', dependsOn: t2.id })
-const deps = getDependentTasks(t2.id)
-assert('getDependentTasks', deps.some(t => t.id === tDep.id))
-
 // reconcile
 const tRunning = createTask({ projectId: p1.id, title: 'Was running', assignee: 'ai', kind: 'once' })
 updateTask(tRunning.id, { status: 'running' })
@@ -203,9 +198,10 @@ assert('reconcileRunningTasks finds running', stale.some(t => t.id === tRunning.
 assert('reconcileRunningTasks resets to pending', getTask(tRunning.id)?.status === 'pending')
 
 // deleteTask
-assert('deleteTask', deleteTask(tDep.id) === true)
+const tToDelete = createTask({ projectId: p1.id, title: 'To delete', assignee: 'ai', kind: 'once' })
+assert('deleteTask', deleteTask(tToDelete.id) === true)
 assert('deleteTask missing', deleteTask('task_x') === false)
-assert('getTask after delete', getTask(tDep.id) === null)
+assert('getTask after delete', getTask(tToDelete.id) === null)
 
 // ── task_logs ─────────────────────────────────────────────────────────────────
 section('task_logs')

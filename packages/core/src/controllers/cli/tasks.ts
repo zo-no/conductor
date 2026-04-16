@@ -4,7 +4,7 @@ import type {
   ScheduledConfig, RecurringConfig, TaskExecutor, ExecutorOptions,
 } from '@conductor/types'
 import {
-  listTasks, getTask, createTask, updateTask, deleteTask, getBlockedByTask, getDependentTasks,
+  listTasks, getTask, createTask, updateTask, deleteTask, getBlockedByTask,
 } from '../../models/tasks'
 import { getTaskLogs } from '../../models/task-logs'
 import { getTaskOps, createTaskOp } from '../../models/task-ops'
@@ -96,7 +96,6 @@ export function registerTaskCommands(program: Command): void {
     .option('--review-on-complete', 'create human review task after completion')
     .option('--voice-notice', 'speak a voice notification when task completes (AI tasks only)')
     .option('--speech-text <text>', 'custom speech text for voice notification')
-    .option('--depends-on <id>', 'prerequisite task id')
     .option('--instructions <text>', 'waiting instructions for human tasks')
     .option('--source-task <id>', 'source AI task id (for human tasks created by AI)')
     .option('--created-by <actor>', 'human or ai', 'human')
@@ -152,7 +151,6 @@ export function registerTaskCommands(program: Command): void {
         description: opts.description,
         assignee: opts.assignee as TaskAssignee,
         kind: opts.kind as TaskKind,
-        dependsOn: opts.dependsOn,
         scheduleConfig,
         executor,
         executorOptions,
@@ -288,20 +286,6 @@ export function registerTaskCommands(program: Command): void {
         })
         void executeTask(bt.id).then((result) => {
           updateTask(bt.id, { status: result.success ? 'done' : 'failed' })
-        })
-      }
-
-      // 2. dependsOn: tasks that declared this task as a prerequisite
-      const dependents = getDependentTasks(id)
-      for (const dt of dependents) {
-        updateTask(dt.id, { completionOutput: opts.output })
-        createTaskOp({
-          taskId: dt.id, op: 'unblocked',
-          fromStatus: 'pending', toStatus: 'pending',
-          actor: 'human', note: `dependency ${id} completed`,
-        })
-        void executeTask(dt.id).then((result) => {
-          updateTask(dt.id, { status: result.success ? 'done' : 'failed' })
         })
       }
 

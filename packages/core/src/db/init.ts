@@ -62,7 +62,6 @@ export function initDb(): void {
       kind                 TEXT NOT NULL DEFAULT 'once',
       status               TEXT NOT NULL DEFAULT 'pending',
       order_index          INTEGER,
-      depends_on           TEXT REFERENCES tasks(id),
       schedule_config      TEXT,
       executor_kind        TEXT,
       executor_config      TEXT,
@@ -82,7 +81,6 @@ export function initDb(): void {
   db.run(`CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee, kind, status)`)
   db.run(`CREATE INDEX IF NOT EXISTS idx_tasks_source   ON tasks(source_task_id)`)
   db.run(`CREATE INDEX IF NOT EXISTS idx_tasks_blocked  ON tasks(blocked_by_task_id)`)
-  db.run(`CREATE INDEX IF NOT EXISTS idx_tasks_depends  ON tasks(depends_on)`)
 
   db.run(`
     CREATE TABLE IF NOT EXISTS task_logs (
@@ -160,6 +158,10 @@ export function initDb(): void {
   // Migrations: add columns if missing (idempotent)
   try { db.run(`ALTER TABLE task_runs ADD COLUMN session_id TEXT`) } catch {}
   try { db.run(`ALTER TABLE tasks ADD COLUMN last_session_id TEXT`) } catch {}
+  try { db.run(`ALTER TABLE tasks DROP COLUMN depends_on`) } catch (e: any) {
+    if (!String(e?.message).includes('no such column')) throw e
+  }
+  try { db.run(`DROP INDEX IF EXISTS idx_tasks_depends`) } catch {}
   try { db.run(`ALTER TABLE projects ADD COLUMN created_by TEXT NOT NULL DEFAULT 'human'`) } catch {}
   try { db.run(`ALTER TABLE projects ADD COLUMN pinned INTEGER NOT NULL DEFAULT 1`) } catch {}
   try { db.run(`ALTER TABLE projects ADD COLUMN group_id TEXT REFERENCES project_groups(id)`) } catch {}

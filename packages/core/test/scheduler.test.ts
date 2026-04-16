@@ -1,6 +1,6 @@
 /**
  * Scheduler logic tests
- * Tests reviewOnComplete, dependsOn auto-trigger, recurring nextRunAt update
+ * Tests reviewOnComplete, recurring nextRunAt update
  */
 import { unlinkSync } from 'fs'
 import { homedir } from 'os'
@@ -79,51 +79,6 @@ section('reviewOnComplete: no review on failure')
   const allTasks = listTasks({ projectId: proj.id, assignee: 'human' })
   const reviewTask = allTasks.find(t => t.sourceTaskId === task.id)
   assert('no review task created on failure', !reviewTask)
-}
-
-// ── dependsOn: skips when dep not done ───────────────────────────────────────
-section('dependsOn: skip when dep not done')
-
-{
-  // Create a prerequisite script task
-  const prereq = createTask({
-    projectId: proj.id,
-    title: 'Prerequisite',
-    assignee: 'ai',
-    kind: 'once',
-    executor: { kind: 'script', command: 'echo "prereq done"' },
-  })
-
-  // Create a dependent task
-  const dependent = createTask({
-    projectId: proj.id,
-    title: 'Dependent task',
-    assignee: 'ai',
-    kind: 'once',
-    dependsOn: prereq.id,
-    executor: { kind: 'script', command: 'echo "dependent ran"' },
-  })
-
-  // Try running dependent before prereq — should be skipped
-  await runTask(dependent.id, 'manual')
-  await Bun.sleep(300)
-  const afterSkip = getTask(dependent.id)
-  assert('dependent skipped before prereq done', afterSkip?.status === 'pending')
-  const skipLogs = getTaskLogs(dependent.id)
-  assert('skipped log created', skipLogs.some(l => l.status === 'skipped'))
-  assert('skip reason mentions dep', skipLogs.some(l => l.skipReason?.includes(prereq.id)))
-
-  // Run prereq
-  await runTask(prereq.id, 'manual')
-  await Bun.sleep(500)
-  const prereqFinal = getTask(prereq.id)
-  assert('prereq finishes done', prereqFinal?.status === 'done')
-
-  // Now dependent can run (dependsOn is satisfied)
-  await runTask(dependent.id, 'manual')
-  await Bun.sleep(500)
-  const depFinal = getTask(dependent.id)
-  assert('dependent runs after prereq done', depFinal?.status === 'done')
 }
 
 // ── recurring: lastRunAt updated after manual run ────────────────────────────

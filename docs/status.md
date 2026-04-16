@@ -83,7 +83,6 @@
 | ai_prompt executor（claude CLI） | ✅ | |
 | http executor | ✅ | |
 | reviewOnComplete | ✅ | |
-| dependsOn 跳过逻辑 | ✅ | |
 | 调度器（scheduled/recurring/reconcile） | ✅ | |
 | human-in-the-loop unblock + 自动重触发 | ✅ | |
 
@@ -102,7 +101,6 @@
 | agent 选择（claude/codex） | ✅ | |
 | http executor Headers 配置 | ✅ | |
 | 系统级 prompt 管理入口 | ✅ | Sidebar 底部按钮 |
-| dependsOn 展示和设置 | ✅ | TaskDetail 展示，TaskForm 选择器 |
 | enabled=false 暂停标签 | ✅ | TaskRow 已有 |
 | 项目新建改用正式对话框 | ✅ | PromptDialog |
 | 默认项目"日常事务"自动创建 | ✅ | initDb seed |

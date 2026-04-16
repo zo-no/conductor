@@ -62,7 +62,6 @@ export interface Task {
   status: TaskStatus
 
   order?: number       // 展示顺序
-  dependsOn?: string   // 前置任务 id，完成后才触发本任务
 
   // 调度配置（kind=scheduled/recurring 时有效）
   scheduleConfig?: ScheduleConfig

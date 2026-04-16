@@ -23,7 +23,6 @@ function rowToTask(row: Record<string, unknown>): Task {
     kind: row.kind as TaskKind,
     status: row.status as TaskStatus,
     order: (row.order_index as number) ?? undefined,
-    dependsOn: (row.depends_on as string) ?? undefined,
     scheduleConfig: row.schedule_config
       ? JSON.parse(row.schedule_config as string) as ScheduleConfig
       : undefined,
@@ -80,7 +79,6 @@ export interface CreateTaskInput {
   assignee: TaskAssignee
   kind: TaskKind
   order?: number
-  dependsOn?: string
   scheduleConfig?: ScheduleConfig
   executor?: TaskExecutor
   executorOptions?: ExecutorOptions
@@ -106,11 +104,11 @@ export function createTask(input: CreateTaskInput): Task {
   db.run(
     `INSERT INTO tasks (
       id, project_id, title, description, assignee, kind, status,
-      order_index, depends_on, schedule_config,
+      order_index, schedule_config,
       executor_kind, executor_config, executor_options,
       waiting_instructions, source_task_id,
       enabled, created_by, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.projectId,
@@ -119,7 +117,6 @@ export function createTask(input: CreateTaskInput): Task {
       input.assignee,
       input.kind,
       input.order ?? null,
-      input.dependsOn ?? null,
       input.scheduleConfig ? JSON.stringify(input.scheduleConfig) : null,
       executorKind,
       executorConfig,
@@ -186,8 +183,13 @@ export function updateTask(id: string, input: UpdateTaskInput): Task | null {
 
 export function deleteTask(id: string): boolean {
   const db = getDb()
-  const result = db.run('DELETE FROM tasks WHERE id = ?', [id])
-  return result.changes > 0
+  // Clear self-referencing foreign keys and delete atomically to avoid partial state on failure
+  const tx = db.transaction(() => {
+    db.run(`UPDATE tasks SET source_task_id = NULL WHERE source_task_id = ?`, [id])
+    db.run(`UPDATE tasks SET blocked_by_task_id = NULL WHERE blocked_by_task_id = ?`, [id])
+    return db.run('DELETE FROM tasks WHERE id = ?', [id])
+  })
+  return tx().changes > 0
 }
 
 /** 查找所有 blockedByTaskId = id 且 status = blocked 的任务 */
@@ -196,15 +198,6 @@ export function getBlockedByTask(blockedByTaskId: string): Task[] {
   const rows = db.query(
     "SELECT * FROM tasks WHERE blocked_by_task_id = ? AND status = 'blocked'",
   ).all(blockedByTaskId) as Record<string, unknown>[]
-  return rows.map(rowToTask)
-}
-
-/** 查找所有 dependsOn = id 且 status = pending 的任务 */
-export function getDependentTasks(dependsOnId: string): Task[] {
-  const db = getDb()
-  const rows = db.query(
-    "SELECT * FROM tasks WHERE depends_on = ? AND status = 'pending'",
-  ).all(dependsOnId) as Record<string, unknown>[]
   return rows.map(rowToTask)
 }
 

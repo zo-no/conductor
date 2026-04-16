@@ -1,6 +1,6 @@
 import { Cron } from 'croner'
 import type { Task, RecurringConfig } from '@conductor/types'
-import { listTasks, getTask, updateTask, reconcileRunningTasks, getBlockedByTask, getDependentTasks } from '../models/tasks'
+import { listTasks, getTask, updateTask, reconcileRunningTasks, getBlockedByTask } from '../models/tasks'
 import { createTaskLog, updateTaskLogCompleted } from '../models/task-logs'
 import { createTaskOp } from '../models/task-ops'
 import { createTask } from '../models/tasks'
@@ -56,20 +56,6 @@ export async function runTask(
   if (task.status === 'blocked') {
     createTaskLog({ taskId, status: 'skipped', triggeredBy, skipReason: 'blocked' })
     return
-  }
-
-  // dependsOn check
-  if (task.dependsOn) {
-    const dep = getTask(task.dependsOn)
-    if (!dep || dep.status !== 'done') {
-      createTaskLog({
-        taskId,
-        status: 'skipped',
-        triggeredBy,
-        skipReason: `depends on ${task.dependsOn} (status: ${dep?.status ?? 'missing'})`,
-      })
-      return
-    }
   }
 
   // Mark running
@@ -173,7 +159,6 @@ export async function runTask(
 // ─── Unblock ──────────────────────────────────────────────────────────────────
 
 async function unblockDependents(completedTaskId: string, output: string): Promise<void> {
-  // 1. blockedByTaskId: tasks explicitly blocked waiting for this one
   const blocked = getBlockedByTask(completedTaskId)
   for (const task of blocked) {
     updateTask(task.id, {
@@ -190,22 +175,6 @@ async function unblockDependents(completedTaskId: string, output: string): Promi
       note: `unblocked by ${completedTaskId}`,
     })
     console.log(`${TAG} unblocked task ${task.id}`)
-    await runTask(task.id, 'scheduler')
-  }
-
-  // 2. dependsOn: tasks that declared this task as a prerequisite
-  const dependents = getDependentTasks(completedTaskId)
-  for (const task of dependents) {
-    updateTask(task.id, { completionOutput: output || undefined })
-    createTaskOp({
-      taskId: task.id,
-      op: 'unblocked',
-      fromStatus: 'pending',
-      toStatus: 'pending',
-      actor: 'scheduler',
-      note: `dependency ${completedTaskId} completed`,
-    })
-    console.log(`${TAG} triggering dependent task ${task.id}`)
     await runTask(task.id, 'scheduler')
   }
 }

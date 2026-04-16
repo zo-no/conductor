@@ -248,7 +248,6 @@ conductor task create \
   --project <project-id> \
   --assignee ai \
   --kind once \
-  --depends-on task_human01 \
   --executor-kind script \
   --script "deploy.sh {lastOutput}" \
   --json

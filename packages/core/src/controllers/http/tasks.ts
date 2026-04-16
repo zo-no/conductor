@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { TaskAssignee, TaskKind, TaskStatus, ScheduleConfig, TaskExecutor, ExecutorOptions } from '@conductor/types'
 import {
-  listTasks, getTask, createTask, updateTask, deleteTask,
+  listTasks, getTask, createTask, updateTask, deleteTask, getBlockedByTask,
 } from '../../models/tasks'
 import { getTaskLogs } from '../../models/task-logs'
 import { getTaskOps } from '../../models/task-ops'
@@ -34,7 +34,6 @@ app.post('/', async (c) => {
     assignee: body.assignee ?? 'human',
     kind: body.kind ?? 'once',
     order: body.order,
-    dependsOn: body.dependsOn,
     scheduleConfig: body.scheduleConfig as ScheduleConfig | undefined,
     executor: body.executor as TaskExecutor | undefined,
     executorOptions: body.executorOptions as ExecutorOptions | undefined,
@@ -100,10 +99,7 @@ app.post('/:id/done', async (c) => {
   })
   createTaskOp({ taskId: id, op: 'done', fromStatus: prevStatus, toStatus: 'done', actor: 'human' })
 
-  // Unblock AI tasks waiting on this human task (two mechanisms)
-  const { getBlockedByTask, getDependentTasks } = await import('../../models/tasks')
-
-  // 1. blockedByTaskId: tasks explicitly blocked waiting for this one
+  // Unblock AI tasks waiting on this human task
   const blocked = getBlockedByTask(id)
   for (const blocked_task of blocked) {
     updateTask(blocked_task.id, {
@@ -120,23 +116,6 @@ app.post('/:id/done', async (c) => {
       note: `unblocked by human task ${id}`,
     })
     void runTask(blocked_task.id, 'api')
-  }
-
-  // 2. dependsOn: tasks that declared this task as a prerequisite
-  const dependents = getDependentTasks(id)
-  for (const dep_task of dependents) {
-    updateTask(dep_task.id, {
-      completionOutput: body.output ?? undefined,
-    })
-    createTaskOp({
-      taskId: dep_task.id,
-      op: 'unblocked',
-      fromStatus: 'pending',
-      toStatus: 'pending',
-      actor: 'human',
-      note: `dependency ${id} completed`,
-    })
-    void runTask(dep_task.id, 'api')
   }
 
   emit({ type: 'task_updated', data: { taskId: id, projectId: task.projectId } })

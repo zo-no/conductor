@@ -348,37 +348,6 @@ section('tasks - http executor')
   assert('http executor kind stored', r.data?.executor?.kind === 'http')
 }
 
-// ── tasks - dependsOn ─────────────────────────────────────────────────────────
-section('tasks - dependsOn')
-
-{
-  const dep = await api('POST', '/api/tasks', {
-    projectId: projId,
-    title: 'Prerequisite',
-    assignee: 'human',
-    kind: 'once',
-  })
-  const child = await api('POST', '/api/tasks', {
-    projectId: projId,
-    title: 'Depends on prerequisite',
-    assignee: 'ai',
-    kind: 'once',
-    dependsOn: dep.data?.id,
-    executor: { kind: 'script', command: 'echo dependent' },
-  })
-  assert('POST task with dependsOn', child.status === 201)
-  assert('dependsOn stored', child.data?.dependsOn === dep.data?.id)
-
-  // Run child — should be skipped because dep is not done
-  await api('POST', `/api/tasks/${child.data?.id}/run`)
-  await Bun.sleep(500)
-  const check = await api('GET', `/api/tasks/${child.data?.id}`)
-  assert('task with unmet dependsOn stays pending', check.data?.status === 'pending')
-
-  const logs = await api('GET', `/api/tasks/${child.data?.id}/logs`)
-  assert('skipped log created for unmet dep', logs.data?.[0]?.status === 'skipped')
-}
-
 // ── tasks - human-in-the-loop (blocked/unblock) ───────────────────────────────
 section('tasks - human-in-the-loop')
 

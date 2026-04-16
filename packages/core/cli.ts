@@ -133,12 +133,12 @@ program
         cancel:      'conductor task cancel <id> --json',
         delete:      'conductor task delete <id> --json',
         update:      'conductor task update <id> [--title ""] [--prompt ""] [--cron ""] [--enable|--disable] [--voice-notice|--no-voice-notice] [--speech-text ""] --json',
-        'create: ai once':      'conductor task create --title "<t>" --project <id> --assignee ai --kind once --executor-kind ai_prompt --prompt "<p>" [--depends-on <id>] [--review-on-complete] [--voice-notice [--speech-text "<text>"]] --json',
+        'create: ai once':      'conductor task create --title "<t>" --project <id> --assignee ai --kind once --executor-kind ai_prompt --prompt "<p>" [--review-on-complete] [--voice-notice [--speech-text "<text>"]] --json',
         'create: ai recurring': 'conductor task create --title "<t>" --project <id> --assignee ai --kind recurring --cron "<expr>" --executor-kind ai_prompt --prompt "<p>" --json',
         'create: ai scheduled': 'conductor task create --title "<t>" --project <id> --assignee ai --kind scheduled --scheduled-at "<ISO8601>" --executor-kind ai_prompt --prompt "<p>" --json',
         'create: ai script':    'conductor task create --title "<t>" --project <id> --assignee ai --kind once --executor-kind script --script "<cmd>" [--work-dir "<dir>"] --json',
         'create: ai http':      'conductor task create --title "<t>" --project <id> --assignee ai --kind once --executor-kind http --http-url "<url>" --http-method POST [--http-body "<json>"] --json',
-        'create: human (checkpoint)': 'conductor task create --title "<t>" --project <id> --assignee human --kind once --instructions "<tell human what to do; include: conductor task done <id> --output ...>" [--depends-on <id>] --json',
+        'create: human (checkpoint)': 'conductor task create --title "<t>" --project <id> --assignee human --kind once --instructions "<tell human what to do; include: conductor task done <id> --output ...>" --json',
       },
 
       // ── Projects ──────────────────────────────────────────────────────────

@@ -108,7 +108,6 @@ type Screen =
   | 'prompt'
   | 'script'
   | 'http'
-  | 'depends-on'
 
 // ─── Calendar picker ──────────────────────────────────────────────────────────
 
@@ -307,13 +306,6 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
   const [continueSession, setContinueSession] = useState(task?.executorOptions?.continueSession ?? false)
   const [reviewOnComplete, setReviewOnComplete] = useState(task?.executorOptions?.reviewOnComplete ?? false)
 
-  // dependsOn
-  const [dependsOn, setDependsOn] = useState(task?.dependsOn ?? '')
-  const [availableTasks, setAvailableTasks] = useState<Task[]>([])
-  useEffect(() => {
-    api.tasks.list({ projectId }).then(ts => setAvailableTasks(ts.filter(t => t.id !== task?.id)))
-  }, [projectId, task?.id])
-
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [screen, setScreen] = useState<Screen>('main')
@@ -328,12 +320,6 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     if (executorKind === 'script') return command ? command.slice(0, 20) + (command.length > 20 ? '…' : '') : t('executorScript')
     if (executorKind === 'http') return httpUrl ? `${httpMethod} ${httpUrl.slice(0, 20)}` : t('executorHTTP')
     return ''
-  }
-
-  function dependsOnDisplay(): string {
-    if (!dependsOn) return t('dependsOnNone')
-    const found = availableTasks.find(task => task.id === dependsOn)
-    return found ? found.title : dependsOn
   }
 
   // ── Build payload ────────────────────────────────────────────────────────
@@ -407,7 +393,6 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
           executor,
           scheduleConfig,
           executorOptions,
-          dependsOn: dependsOn || undefined,
         } as any)
       } else {
         await api.tasks.create({
@@ -419,7 +404,6 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
           executor,
           scheduleConfig,
           executorOptions,
-          dependsOn: dependsOn || undefined,
         })
       }
       onDone()
@@ -684,33 +668,6 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
       )
     }
 
-    if (screen === 'depends-on') {
-      return (
-        <>
-          <SheetHeader title={t('dependsOnLabel')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
-          <div className="overflow-y-auto flex-1">
-            <CardSection>
-              <button type="button" className="flex items-center gap-3 px-4 py-3.5 w-full text-left active:bg-gray-50"
-                onClick={() => { setDependsOn(''); setScreen('main') }}>
-                <span className="flex-1 text-sm text-gray-700">{t('dependsOnNone')}</span>
-                {!dependsOn && <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-              </button>
-              {availableTasks.map((taskItem) => (
-                <div key={taskItem.id}>
-                  <RowDivider />
-                  <button type="button" className="flex items-center gap-3 px-4 py-3.5 w-full text-left active:bg-gray-50"
-                    onClick={() => { setDependsOn(taskItem.id); setScreen('main') }}>
-                    <span className="flex-1 text-sm text-gray-700">{taskItem.title}</span>
-                    {dependsOn === taskItem.id && <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                  </button>
-                </div>
-              ))}
-            </CardSection>
-          </div>
-        </>
-      )
-    }
-
     // ── Main screen ────────────────────────────────────────────────────────
 
     const recurPreset = cronToPreset(cron)
@@ -909,18 +866,6 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
             </CardSection>
           )}
 
-          {/* Depends on */}
-          {availableTasks.length > 0 && (
-            <CardSection>
-              <Row
-                icon={<LinkIcon />}
-                label={t('dependsOnLabel')}
-                value={dependsOnDisplay()}
-                accent={!!dependsOn}
-                onClick={() => setScreen('depends-on')}
-              />
-            </CardSection>
-          )}
 
           {error && (
             <div className="mx-4 mb-3 px-3 py-2 bg-red-50 border border-red-100 rounded-xl text-xs text-red-500">
@@ -997,7 +942,6 @@ const BoltIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" 
 const ChatIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round" /></svg>
 const TermIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="2" y="3" width="20" height="18" rx="2" /><path d="M8 9l3 3-3 3M13 15h3" strokeLinecap="round" strokeLinejoin="round" /></svg>
 const GlobeIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="12" r="9" /><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" strokeLinecap="round" /></svg>
-const LinkIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" strokeLinecap="round" /><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" strokeLinecap="round" /></svg>
 const PersonIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="7" r="4" /><path d="M5.5 21a7 7 0 0113 0" strokeLinecap="round" /></svg>
 const HistoryIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M3 12a9 9 0 109-9 9 9 0 00-9 9" strokeLinecap="round" /><path d="M3 3v6h6" strokeLinecap="round" strokeLinejoin="round" /><path d="M12 7v5l3 3" strokeLinecap="round" /></svg>
 const ReviewIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M9 11l3 3L22 4" strokeLinecap="round" strokeLinejoin="round" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" strokeLinecap="round" /></svg>
