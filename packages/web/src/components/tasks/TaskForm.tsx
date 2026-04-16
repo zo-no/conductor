@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { Task, TaskAssignee, TaskKind, TaskExecutor, ScheduleConfig } from '@conductor/types'
 import { api } from '../../lib/api'
+import { useT } from '../../lib/i18n'
 
 interface Props {
   projectId: string
@@ -124,8 +125,10 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (d: stri
   const isSelected = (d: number) => selectedDate?.getFullYear() === viewYear && selectedDate?.getMonth() === viewMonth && selectedDate?.getDate() === d
   const isToday = (d: number) => today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === d
 
-  const monthLabel = `${viewYear}年${viewMonth + 1}月`
-  const weekDays = ['日', '一', '二', '三', '四', '五', '六']
+  const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
+  const weekDays = Array.from({ length: 7 }, (_, i) =>
+    new Date(2024, 0, 7 + i).toLocaleDateString(undefined, { weekday: 'narrow' })
+  )
 
   function select(d: number) {
     const iso = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
@@ -175,17 +178,18 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (d: stri
 // ─── Time picker (hour × minute wheel-style) ──────────────────────────────────
 
 function TimePicker({ hour, minute, onChange }: { hour: number; minute: number; onChange: (h: number, m: number) => void }) {
+  const t = useT()
   const hours = Array.from({ length: 24 }, (_, i) => i)
   const minutes = [0, 15, 30, 45]
 
   return (
     <div className="px-4 py-3">
-      <p className="text-xs text-gray-400 mb-3">选择时间</p>
+      <p className="text-xs text-gray-400 mb-3">{t('executionTimeLabel')}</p>
       <div className="text-center text-3xl font-bold text-blue-500 mb-4">
         {String(hour).padStart(2, '0')}:{String(minute).padStart(2, '0')}
       </div>
       {/* Hour grid */}
-      <p className="text-xs text-gray-400 mb-2">小时</p>
+      <p className="text-xs text-gray-400 mb-2">{t('executionHour')}</p>
       <div className="grid grid-cols-6 gap-1.5 mb-4">
         {hours.map(h => (
           <button
@@ -200,7 +204,7 @@ function TimePicker({ hour, minute, onChange }: { hour: number; minute: number; 
         ))}
       </div>
       {/* Minute */}
-      <p className="text-xs text-gray-400 mb-2">分钟</p>
+      <p className="text-xs text-gray-400 mb-2">:{' '}</p>
       <div className="grid grid-cols-4 gap-1.5">
         {minutes.map(m => (
           <button
@@ -222,25 +226,36 @@ function TimePicker({ hour, minute, onChange }: { hour: number; minute: number; 
 
 type RecurringPreset = 'daily' | 'weekday' | 'weekly' | 'monthly' | 'hourly' | 'custom'
 
-const PRESETS: { value: RecurringPreset; label: string; desc: string; cron: string }[] = [
-  { value: 'daily',   label: '每天',    desc: '每天执行一次',   cron: '0 9 * * *' },
-  { value: 'weekday', label: '工作日',  desc: '周一至周五',     cron: '0 9 * * 1-5' },
-  { value: 'weekly',  label: '每周一',  desc: '每周一执行',     cron: '0 9 * * 1' },
-  { value: 'monthly', label: '每月1日', desc: '每月第一天',     cron: '0 9 1 * *' },
-  { value: 'hourly',  label: '每小时',  desc: '每整点执行',     cron: '0 * * * *' },
-  { value: 'custom',  label: '自定义',  desc: 'Cron 表达式',    cron: '' },
+const PRESET_CRONS: { value: RecurringPreset; cron: string }[] = [
+  { value: 'daily',   cron: '0 9 * * *' },
+  { value: 'weekday', cron: '0 9 * * 1-5' },
+  { value: 'weekly',  cron: '0 9 * * 1' },
+  { value: 'monthly', cron: '0 9 1 * *' },
+  { value: 'hourly',  cron: '0 * * * *' },
+  { value: 'custom',  cron: '' },
 ]
 
 function cronToPreset(cron: string): RecurringPreset {
-  const match = PRESETS.find(p => p.value !== 'custom' && p.cron.replace('9', cron.split(' ')[1] ?? '9') === cron)
+  const match = PRESET_CRONS.find(p => p.value !== 'custom' && p.cron.replace('9', cron.split(' ')[1] ?? '9') === cron)
   return match ? match.value : 'custom'
 }
 
 // ─── Main form ────────────────────────────────────────────────────────────────
 
 export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
+  const t = useT()
   const isMobile = useIsMobile()
   const isEdit = !!task
+
+  // Build translated presets inside component so t() is available
+  const PRESETS: { value: RecurringPreset; label: string; desc: string; cron: string }[] = [
+    { value: 'daily',   label: t('daily'),   desc: t('daily'),   cron: '0 9 * * *' },
+    { value: 'weekday', label: t('weekday'), desc: t('weekday'), cron: '0 9 * * 1-5' },
+    { value: 'weekly',  label: t('weekly'),  desc: t('weekly'),  cron: '0 9 * * 1' },
+    { value: 'monthly', label: t('monthly'), desc: t('monthly'), cron: '0 9 1 * *' },
+    { value: 'hourly',  label: t('hourly'),  desc: t('hourly'),  cron: '0 * * * *' },
+    { value: 'custom',  label: t('custom'),  desc: t('custom'),  cron: '' },
+  ]
 
   // Core fields
   const [title, setTitle] = useState(task?.title ?? '')
@@ -308,17 +323,17 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
   // ── Derived display values ───────────────────────────────────────────────
 
   function executorDisplay(): string {
-    if (executorKind === 'none') return '无'
-    if (executorKind === 'ai_prompt') return agent === 'claude' ? 'Claude' : 'Codex'
-    if (executorKind === 'script') return command ? command.slice(0, 20) + (command.length > 20 ? '…' : '') : '配置脚本'
-    if (executorKind === 'http') return httpUrl ? `${httpMethod} ${httpUrl.slice(0, 20)}` : '配置 HTTP'
+    if (executorKind === 'none') return t('executorNone')
+    if (executorKind === 'ai_prompt') return agent === 'claude' ? t('agentClaude') : t('agentCodex')
+    if (executorKind === 'script') return command ? command.slice(0, 20) + (command.length > 20 ? '…' : '') : t('executorScript')
+    if (executorKind === 'http') return httpUrl ? `${httpMethod} ${httpUrl.slice(0, 20)}` : t('executorHTTP')
     return ''
   }
 
   function dependsOnDisplay(): string {
-    if (!dependsOn) return '无'
-    const t = availableTasks.find(t => t.id === dependsOn)
-    return t ? t.title : dependsOn
+    if (!dependsOn) return t('dependsOnNone')
+    const found = availableTasks.find(task => task.id === dependsOn)
+    return found ? found.title : dependsOn
   }
 
   // ── Build payload ────────────────────────────────────────────────────────
@@ -331,7 +346,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
   function buildCron(): string {
     const preset = cronToPreset(cron)
     if (preset === 'custom') return cron
-    const p = PRESETS.find(x => x.value === preset)
+    const p = PRESET_CRONS.find(x => x.value === preset)
     if (!p) return cron
     const parts = p.cron.split(' ')
     parts[0] = String(recurringMinute)
@@ -369,12 +384,12 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
   }
 
   async function handleSubmit() {
-    if (!title.trim()) { setError('标题不能为空'); return }
-    if (executorKind === 'ai_prompt' && !prompt.trim()) { setError('Prompt 不能为空'); return }
-    if (executorKind === 'script' && !command.trim()) { setError('命令不能为空'); return }
-    if (executorKind === 'http' && !httpUrl.trim()) { setError('URL 不能为空'); return }
-    if (scheduleKind === 'scheduled' && !scheduledDate) { setError('请选择执行日期'); return }
-    if (scheduleKind === 'recurring' && !buildCron().trim()) { setError('请设置执行周期'); return }
+    if (!title.trim()) { setError(t('titleRequired')); return }
+    if (executorKind === 'ai_prompt' && !prompt.trim()) { setError(t('promptRequired')); return }
+    if (executorKind === 'script' && !command.trim()) { setError(t('commandRequired')); return }
+    if (executorKind === 'http' && !httpUrl.trim()) { setError(t('urlRequired')); return }
+    if (scheduleKind === 'scheduled' && !scheduledDate) { setError(t('timeRequired')); return }
+    if (scheduleKind === 'recurring' && !buildCron().trim()) { setError(t('cronRequired')); return }
 
     setSaving(true)
     setError('')
@@ -409,7 +424,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
       }
       onDone()
     } catch (e: any) {
-      setError(e.message ?? '保存失败')
+      setError(e.message ?? t('saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -421,7 +436,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     if (screen === 'schedule-kind') {
       return (
         <>
-          <SheetHeader title="触发方式" onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
+          <SheetHeader title={t('triggerLabel')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
           <div className="overflow-y-auto flex-1">
             <CardSection>
               {(['none', 'scheduled', 'recurring'] as ScheduleKind[]).map((k, i, arr) => (
@@ -432,7 +447,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                     onClick={() => { setScheduleKind(k); setScreen('main') }}
                   >
                     <span className="flex-1 text-sm text-gray-700">
-                      {{ none: '手动触发', scheduled: '定时执行（一次）', recurring: '周期重复' }[k]}
+                      {{ none: t('triggerManual'), scheduled: t('triggerScheduled'), recurring: t('triggerRecurring') }[k]}
                     </span>
                     {scheduleKind === k && (
                       <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -452,14 +467,14 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     if (screen === 'scheduled-date') {
       return (
         <>
-          <SheetHeader title="选择日期" onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
+          <SheetHeader title={t('executionTimeLabel')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
           <div className="overflow-y-auto flex-1">
             <CalendarPicker value={scheduledDate} onChange={d => { setScheduledDate(d); }} />
             <CardSection>
               <Row
                 icon={<ClockIcon />}
-                label="时间"
-                value={`${String(scheduledHour).padStart(2,'0')}:${String(scheduledMinute).padStart(2,'0')}`}
+                label={t('executionTimeLabel')}
+                value={`${String(scheduledHour).padStart(2,'00')}:${String(scheduledMinute).padStart(2,'00')}`}
                 accent
                 onClick={() => setScreen('scheduled-time')}
               />
@@ -472,7 +487,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     if (screen === 'scheduled-time') {
       return (
         <>
-          <SheetHeader title="选择时间" onBack={() => setScreen('scheduled-date')} onConfirm={() => setScreen('scheduled-date')} />
+          <SheetHeader title={t('executionTimeLabel')} onBack={() => setScreen('scheduled-date')} onConfirm={() => setScreen('scheduled-date')} />
           <div className="overflow-y-auto flex-1">
             <TimePicker hour={scheduledHour} minute={scheduledMinute} onChange={(h, m) => { setScheduledHour(h); setScheduledMinute(m) }} />
           </div>
@@ -484,7 +499,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
       const preset = cronToPreset(cron)
       return (
         <>
-          <SheetHeader title="重复频率" onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
+          <SheetHeader title={t('recurringLabel')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
           <div className="overflow-y-auto flex-1">
             <CardSection>
               {PRESETS.map((p, i) => (
@@ -494,10 +509,13 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                     className="flex items-center gap-3 px-4 py-3.5 w-full text-left active:bg-gray-50"
                     onClick={() => {
                       if (p.value !== 'custom') {
-                        const parts = p.cron.split(' ')
-                        parts[0] = String(recurringMinute)
-                        parts[1] = String(recurringHour)
-                        setCron(parts.join(' '))
+                        const cronEntry = PRESET_CRONS.find(x => x.value === p.value)
+                        if (cronEntry) {
+                          const parts = cronEntry.cron.split(' ')
+                          parts[0] = String(recurringMinute)
+                          parts[1] = String(recurringHour)
+                          setCron(parts.join(' '))
+                        }
                       } else {
                         setCron('')
                       }
@@ -526,14 +544,14 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     if (screen === 'recurring-time') {
       return (
         <>
-          <SheetHeader title="执行时间" onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
+          <SheetHeader title={t('executionTimeLabel')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
           <div className="overflow-y-auto flex-1">
             <TimePicker hour={recurringHour} minute={recurringMinute} onChange={(h, m) => {
               setRecurringHour(h); setRecurringMinute(m)
               const preset = cronToPreset(cron)
-              const p = PRESETS.find(x => x.value === preset)
-              if (p && preset !== 'custom') {
-                const parts = p.cron.split(' ')
+              const cronEntry = PRESET_CRONS.find(x => x.value === preset)
+              if (cronEntry && preset !== 'custom') {
+                const parts = cronEntry.cron.split(' ')
                 parts[0] = String(m)
                 parts[1] = String(h)
                 setCron(parts.join(' '))
@@ -547,14 +565,14 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     if (screen === 'executor-kind') {
       return (
         <>
-          <SheetHeader title="执行器" onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
+          <SheetHeader title={t('executorLabel')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
           <div className="overflow-y-auto flex-1">
             <CardSection>
               {([
-                { value: 'none' as ExecutorKind, label: '无', desc: '仅记录，不自动执行' },
-                { value: 'ai_prompt' as ExecutorKind, label: 'AI Prompt', desc: '调用 Claude / Codex' },
-                { value: 'script' as ExecutorKind, label: '脚本', desc: '运行 Shell 命令' },
-                { value: 'http' as ExecutorKind, label: 'HTTP', desc: '调用 HTTP 接口' },
+                { value: 'none' as ExecutorKind, label: t('executorNone'), desc: t('triggerManualDesc') },
+                { value: 'ai_prompt' as ExecutorKind, label: t('executorAIPrompt'), desc: t('assigneeAIDesc') },
+                { value: 'script' as ExecutorKind, label: t('executorScript'), desc: t('commandPlaceholder') },
+                { value: 'http' as ExecutorKind, label: t('executorHTTP'), desc: t('urlRequired') },
               ]).map((opt, i, arr) => (
                 <div key={opt.value}>
                   <button
@@ -584,13 +602,13 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     if (screen === 'prompt') {
       return (
         <>
-          <SheetHeader title="AI Prompt" onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
+          <SheetHeader title={t('executorAIPrompt')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
           <div className="overflow-y-auto flex-1 px-4 py-3 space-y-3">
             <textarea
               autoFocus
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
-              placeholder="输入 prompt，支持 {date} {taskTitle} {projectName} {lastOutput} 等占位符"
+              placeholder={t('promptPlaceholder')}
               rows={6}
               className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none font-mono text-xs"
             />
@@ -601,15 +619,15 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                   {(['claude', 'codex'] as const).map(a => (
                     <button key={a} type="button" onClick={() => setAgent(a)}
                       className={`px-3 py-1.5 text-xs font-medium transition-colors ${agent === a ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                      {a === 'claude' ? 'Claude' : 'Codex'}
+                      {a === 'claude' ? t('agentClaude') : t('agentCodex')}
                     </button>
                   ))}
                 </div>
               </div>
               <RowDivider />
               <div className="flex items-center gap-3 px-4 py-3.5">
-                <span className="flex-1 text-sm text-gray-700">模型</span>
-                <input value={model} onChange={e => setModel(e.target.value)} placeholder="默认"
+                <span className="flex-1 text-sm text-gray-700">{t('modelPlaceholder')}</span>
+                <input value={model} onChange={e => setModel(e.target.value)} placeholder={t('modelPlaceholder')}
                   className="text-sm text-right text-blue-500 placeholder-gray-300 focus:outline-none w-40" />
               </div>
             </CardSection>
@@ -621,14 +639,14 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     if (screen === 'script') {
       return (
         <>
-          <SheetHeader title="脚本" onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
+          <SheetHeader title={t('executorScript')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
           <div className="overflow-y-auto flex-1 px-4 py-3 space-y-3">
             <input value={command} onChange={e => setCommand(e.target.value)}
-              placeholder="Shell 命令，如 python3 ~/script.py"
+              placeholder={t('commandPlaceholder')}
               autoFocus
               className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-mono text-xs" />
             <input value={workDir} onChange={e => setWorkDir(e.target.value)}
-              placeholder="工作目录（留空使用项目目录）"
+              placeholder={t('workDirPlaceholder')}
               className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
           </div>
         </>
@@ -638,7 +656,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     if (screen === 'http') {
       return (
         <>
-          <SheetHeader title="HTTP" onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
+          <SheetHeader title={t('executorHTTP')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
           <div className="overflow-y-auto flex-1 px-4 py-3 space-y-3">
             <div className="flex gap-2">
               <div className="flex rounded-lg border border-gray-200 overflow-hidden flex-shrink-0">
@@ -654,11 +672,11 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
             </div>
             {(httpMethod === 'POST' || httpMethod === 'PUT') && (
               <textarea value={httpBody} onChange={e => setHttpBody(e.target.value)}
-                placeholder="请求体（JSON）" rows={3}
+                placeholder="JSON body" rows={3}
                 className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none font-mono text-xs" />
             )}
             <textarea value={httpHeaders} onChange={e => setHttpHeaders(e.target.value)}
-              placeholder={'请求头（每行一个）\nAuthorization: Bearer token'}
+              placeholder={'Headers (one per line)\nAuthorization: Bearer token'}
               rows={2}
               className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none font-mono text-xs" />
           </div>
@@ -669,21 +687,21 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     if (screen === 'depends-on') {
       return (
         <>
-          <SheetHeader title="前置任务" onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
+          <SheetHeader title={t('dependsOnLabel')} onBack={() => setScreen('main')} onConfirm={() => setScreen('main')} />
           <div className="overflow-y-auto flex-1">
             <CardSection>
               <button type="button" className="flex items-center gap-3 px-4 py-3.5 w-full text-left active:bg-gray-50"
                 onClick={() => { setDependsOn(''); setScreen('main') }}>
-                <span className="flex-1 text-sm text-gray-700">无</span>
+                <span className="flex-1 text-sm text-gray-700">{t('dependsOnNone')}</span>
                 {!dependsOn && <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
               </button>
-              {availableTasks.map((t) => (
-                <div key={t.id}>
+              {availableTasks.map((taskItem) => (
+                <div key={taskItem.id}>
                   <RowDivider />
                   <button type="button" className="flex items-center gap-3 px-4 py-3.5 w-full text-left active:bg-gray-50"
-                    onClick={() => { setDependsOn(t.id); setScreen('main') }}>
-                    <span className="flex-1 text-sm text-gray-700">{t.title}</span>
-                    {dependsOn === t.id && <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                    onClick={() => { setDependsOn(taskItem.id); setScreen('main') }}>
+                    <span className="flex-1 text-sm text-gray-700">{taskItem.title}</span>
+                    {dependsOn === taskItem.id && <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                   </button>
                 </div>
               ))}
@@ -696,18 +714,18 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
     // ── Main screen ────────────────────────────────────────────────────────
 
     const recurPreset = cronToPreset(cron)
-    const recurPresetLabel = PRESETS.find(p => p.value === recurPreset)?.label ?? '自定义'
+    const recurPresetLabel = PRESETS.find(p => p.value === recurPreset)?.label ?? t('custom')
     const recurTimeStr = `${String(recurringHour).padStart(2,'0')}:${String(recurringMinute).padStart(2,'0')}`
 
     return (
       <>
         <SheetHeader
-          title={isEdit ? '编辑任务' : '新建任务'}
+          title={isEdit ? t('editTaskTitle') : t('newTaskTitle')}
           onBack={onCancel}
           onConfirm={handleSubmit}
-          confirmLabel={saving ? '保存中' : (isEdit ? '保存' : '创建')}
+          confirmLabel={saving ? t('saving') : (isEdit ? t('save') : t('create'))}
           confirmDisabled={saving}
-          backLabel="取消"
+          backLabel={t('cancel')}
         />
         <div className="overflow-y-auto flex-1">
 
@@ -718,7 +736,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                 autoFocus
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="任务标题"
+                placeholder={t('titlePlaceholder')}
                 className="w-full text-base font-medium text-gray-900 placeholder-gray-300 focus:outline-none"
               />
             </div>
@@ -727,7 +745,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                placeholder="备注（可选）"
+                placeholder={t('descriptionPlaceholder')}
                 rows={1}
                 className="w-full text-sm text-gray-600 placeholder-gray-300 focus:outline-none resize-none"
               />
@@ -741,13 +759,13 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                 <span className="text-gray-400 flex-shrink-0 w-5 flex items-center justify-center">
                   <PersonIcon />
                 </span>
-                <span className="flex-1 text-sm text-gray-700">执行者</span>
+                <span className="flex-1 text-sm text-gray-700">{t('assigneeLabel')}</span>
                 <div className="flex rounded-lg border border-gray-200 overflow-hidden">
                   {(['human', 'ai'] as TaskAssignee[]).map(a => (
                     <button key={a} type="button"
                       onClick={() => { setAssignee(a); if (a === 'human') setExecutorKind('none') }}
                       className={`px-3 py-1.5 text-xs font-medium transition-colors ${assignee === a ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                      {a === 'human' ? '人类' : 'AI'}
+                      {a === 'human' ? t('assigneeHuman') : t('assigneeAI')}
                     </button>
                   ))}
                 </div>
@@ -759,8 +777,8 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
           <CardSection>
             <Row
               icon={<CalIcon />}
-              label="触发方式"
-              value={{ none: '手动', scheduled: '定时', recurring: '周期' }[scheduleKind]}
+              label={t('triggerLabel')}
+              value={{ none: t('triggerManual'), scheduled: t('triggerScheduled'), recurring: t('triggerRecurring') }[scheduleKind]}
               onClick={() => setScreen('schedule-kind')}
             />
 
@@ -769,15 +787,15 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                 <RowDivider />
                 <Row
                   icon={<CalIcon />}
-                  label="日期"
-                  value={scheduledDate ? new Date(scheduledDate + 'T12:00:00').toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' }) : '选择日期'}
+                  label={t('executionTimeLabel')}
+                  value={scheduledDate ? new Date(scheduledDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', weekday: 'short' }) : t('executionTimeLabel')}
                   accent={!!scheduledDate}
                   onClick={() => setScreen('scheduled-date')}
                 />
                 <RowDivider />
                 <Row
                   icon={<ClockIcon />}
-                  label="时间"
+                  label={t('executionTimeLabel')}
                   value={`${String(scheduledHour).padStart(2,'0')}:${String(scheduledMinute).padStart(2,'0')}`}
                   accent
                   onClick={() => setScreen('scheduled-time')}
@@ -790,7 +808,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                 <RowDivider />
                 <Row
                   icon={<RepeatIcon />}
-                  label="重复"
+                  label={t('recurringLabel')}
                   value={recurPreset === 'custom' ? cron : recurPresetLabel}
                   accent
                   onClick={() => setScreen('recurring-preset')}
@@ -800,7 +818,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                     <RowDivider />
                     <Row
                       icon={<ClockIcon />}
-                      label="执行时间"
+                      label={t('executionTimeLabel')}
                       value={recurTimeStr}
                       accent
                       onClick={() => setScreen('recurring-time')}
@@ -813,7 +831,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                     <div className="px-4 py-3 flex items-center gap-3">
                       <span className="text-gray-400 flex-shrink-0 w-5" />
                       <input value={cron} onChange={e => setCron(e.target.value)}
-                        placeholder="0 9 * * *  （分 时 日 月 周）"
+                        placeholder="0 9 * * *  （min hour day month weekday）"
                         className="flex-1 text-sm font-mono text-blue-500 placeholder-gray-300 focus:outline-none" />
                     </div>
                   </>
@@ -827,7 +845,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
             <CardSection>
               <Row
                 icon={<BoltIcon />}
-                label="执行器"
+                label={t('executorLabel')}
                 value={executorDisplay()}
                 accent={executorKind !== 'none'}
                 onClick={() => setScreen('executor-kind')}
@@ -837,7 +855,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                   <RowDivider />
                   <Row
                     icon={<ChatIcon />}
-                    label={prompt ? prompt.slice(0, 28) + (prompt.length > 28 ? '…' : '') : '设置 Prompt'}
+                    label={prompt ? prompt.slice(0, 28) + (prompt.length > 28 ? '…' : '') : t('executorAIPrompt')}
                     accent={!!prompt}
                     onClick={() => setScreen('prompt')}
                   />
@@ -848,7 +866,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                   <RowDivider />
                   <Row
                     icon={<TermIcon />}
-                    label={command ? command.slice(0, 28) + (command.length > 28 ? '…' : '') : '配置脚本'}
+                    label={command ? command.slice(0, 28) + (command.length > 28 ? '…' : '') : t('executorScript')}
                     accent={!!command}
                     onClick={() => setScreen('script')}
                   />
@@ -859,7 +877,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                   <RowDivider />
                   <Row
                     icon={<GlobeIcon />}
-                    label={httpUrl ? `${httpMethod} ${httpUrl.slice(0, 20)}` : '配置 HTTP'}
+                    label={httpUrl ? `${httpMethod} ${httpUrl.slice(0, 20)}` : t('executorHTTP')}
                     accent={!!httpUrl}
                     onClick={() => setScreen('http')}
                   />
@@ -875,7 +893,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
                 <>
                   <ToggleRow
                     icon={<HistoryIcon />}
-                    label="接续上次对话"
+                    label={t('continueSession')}
                     checked={continueSession}
                     onChange={setContinueSession}
                   />
@@ -884,7 +902,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
               )}
               <ToggleRow
                 icon={<ReviewIcon />}
-                label="完成后创建审核任务"
+                label={t('reviewOnComplete')}
                 checked={reviewOnComplete}
                 onChange={setReviewOnComplete}
               />
@@ -896,7 +914,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
             <CardSection>
               <Row
                 icon={<LinkIcon />}
-                label="前置任务"
+                label={t('dependsOnLabel')}
                 value={dependsOnDisplay()}
                 accent={!!dependsOn}
                 onClick={() => setScreen('depends-on')}
@@ -942,7 +960,7 @@ export function TaskForm({ projectId, task, onDone, onCancel }: Props) {
 // ─── Sheet header ─────────────────────────────────────────────────────────────
 
 function SheetHeader({
-  title, onBack, onConfirm, confirmLabel = '完成', confirmDisabled = false, backLabel,
+  title, onBack, onConfirm, confirmLabel = 'OK', confirmDisabled = false, backLabel,
 }: {
   title: string
   onBack: () => void

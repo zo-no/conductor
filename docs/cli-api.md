@@ -7,6 +7,23 @@
 
 ## 数据类型
 
+### ProjectGroup
+
+```ts
+{
+  id: string          // "group_" + hex，例如 "group_a1b2c3"
+  createdAt: string   // ISO 8601
+  updatedAt: string
+
+  name: string
+  order: number       // 侧边栏展示顺序（数值越小越靠前）
+  collapsed: boolean  // 默认是否折叠（true = 侧边栏默认收起）
+  createdBy: "human" | "ai" | "system"
+
+  projects?: Project[] // GET /api/groups 时附带分组内的项目列表
+}
+```
+
 ### Project
 
 ```ts
@@ -22,6 +39,21 @@
 
   archived: boolean
   archivedAt?: string
+
+  groupId?: string    // 归属分组 id，null = 未分组
+  order: number       // 在分组内（或未分组列表中）的展示顺序
+  pinned: boolean     // false = 折叠到侧边栏"更多"区，默认 true
+}
+```
+
+### ProjectsView
+
+前端侧边栏主视图结构，由 `GET /api/view/projects` 返回。
+
+```ts
+{
+  groups: Array<ProjectGroup & { projects: Project[] }>  // 有分组的项目，按 group.order 排序
+  ungrouped: Project[]                                   // groupId=null 的项目，按 project.order 排序
 }
 ```
 
@@ -422,6 +454,9 @@ conductor project create \
   --name <name> \
   [--goal <text>]       # 项目目标描述
   [--work-dir <path>]   # 项目默认工作目录
+  [--group <groupId>]   # 归属分组 id
+  [--order <n>]         # 在分组内（或未分组列表中）的排序位置
+  [--no-pin]            # 创建时设为 pinned=false（不固定显示）
   [--json]
 ```
 
@@ -436,6 +471,11 @@ conductor project update <project-id> \
   [--name <name>]
   [--goal <text>]
   [--work-dir <path>]
+  [--group <groupId>]   # 设置归属分组
+  [--no-group]          # 移出分组（移到未分组）
+  [--order <n>]         # 在分组内（或未分组列表中）的排序位置
+  [--pin]               # 设为固定显示
+  [--no-pin]            # 设为不固定显示（折叠到"更多"区）
   [--json]
 ```
 
@@ -465,6 +505,112 @@ conductor project unarchive <project-id> [--json]
 ```
 
 **输出**：更新后的 Project 对象。
+
+---
+
+#### `conductor project reorder-ungrouped`
+
+重新排列未分组项目的顺序（按传入顺序设置 order）。
+
+```bash
+conductor project reorder-ungrouped <proj-id1> <proj-id2> ... [--json]
+```
+
+**输出**：`{ ok: true }`
+
+---
+
+### 分组
+
+#### `conductor group list`
+
+列出所有分组，每个分组附带其所属项目列表。
+
+```bash
+conductor group list [--json]
+```
+
+**输出**：ProjectGroup 数组（含 `projects` 字段）。
+
+---
+
+#### `conductor group get <id>`
+
+获取单个分组（含所属项目列表）。
+
+```bash
+conductor group get <id> [--json]
+```
+
+**输出**：ProjectGroup 对象（含 `projects` 字段），找不到则报错退出。
+
+---
+
+#### `conductor group create`
+
+创建分组。
+
+```bash
+conductor group create \
+  --name "<name>" \
+  [--collapsed]         # 默认折叠（不传则默认展开）
+  [--created-by ai]     # AI 创建时传此参数
+  [--json]
+```
+
+**输出**：新建的 ProjectGroup 对象。
+
+---
+
+#### `conductor group update <id>`
+
+更新分组属性。
+
+```bash
+conductor group update <id> \
+  [--name "新名称"] \
+  [--collapse] \        # 设为默认折叠
+  [--expand] \          # 设为默认展开
+  [--json]
+```
+
+**输出**：更新后的 ProjectGroup 对象。
+
+---
+
+#### `conductor group delete <id>`
+
+删除分组，分组内项目移到未分组（`groupId` 置 `null`）。
+
+```bash
+conductor group delete <id> [--json]
+```
+
+**输出**：`{ ok: true }`
+
+---
+
+#### `conductor group reorder`
+
+重新排列分组顺序（按传入顺序设置 order）。
+
+```bash
+conductor group reorder <id1> <id2> ... [--json]
+```
+
+**输出**：`{ ok: true }`
+
+---
+
+#### `conductor group reorder-projects`
+
+重新排列分组内项目的顺序（按传入顺序设置 order）。
+
+```bash
+conductor group reorder-projects <groupId> <proj-id1> <proj-id2> ... [--json]
+```
+
+**输出**：`{ ok: true }`
 
 ---
 
@@ -622,7 +768,10 @@ conductor version
 {
   "name": "新名称",
   "goal": "新目标",
-  "workDir": "~/new/path"
+  "workDir": "~/new/path",
+  "groupId": "group_xxx",   // 设置归属分组，null = 移出分组
+  "order": 2,               // 在分组内（或未分组中）的排序位置
+  "pinned": false           // 是否固定显示在侧边栏
 }
 ```
 
@@ -655,6 +804,148 @@ conductor version
 
 **响应** `200`：更新后的 Project 对象  
 **响应** `404`：`{ "error": "not found" }`
+
+---
+
+### View
+
+#### `GET /api/view/projects`
+
+返回 `ProjectsView`，前端侧边栏的主数据源。含分组（每个分组附带所属项目列表）和未分组项目。
+
+**响应** `200`：ProjectsView 对象
+
+```json
+{
+  "groups": [
+    {
+      "id": "group_a1b2c3",
+      "name": "工作",
+      "order": 0,
+      "collapsed": false,
+      "createdBy": "human",
+      "createdAt": "...",
+      "updatedAt": "...",
+      "projects": [
+        { "id": "proj_xxx", "name": "日常事务", "order": 0, "pinned": true, "archived": false, "createdAt": "...", "updatedAt": "..." },
+        { "id": "proj_yyy", "name": "理财计划", "order": 1, "pinned": false, "archived": false, "createdAt": "...", "updatedAt": "..." }
+      ]
+    }
+  ],
+  "ungrouped": [
+    { "id": "proj_zzz", "name": "测试", "order": 0, "pinned": true, "archived": false, "createdAt": "...", "updatedAt": "..." }
+  ]
+}
+```
+
+---
+
+### Groups
+
+#### `GET /api/groups`
+
+列出所有分组，每个分组附带所属项目列表。
+
+**响应** `200`：ProjectGroup 数组（含 `projects` 字段）
+
+---
+
+#### `POST /api/groups`
+
+创建分组。
+
+**请求体**：
+```json
+{
+  "name": "工作",        // 必填
+  "collapsed": false,    // 可选，默认 false
+  "createdBy": "human"   // 可选，默认 "human"，AI 创建时传 "ai"
+}
+```
+
+**响应** `201`：新建的 ProjectGroup 对象  
+**响应** `400`：`{ "error": "name is required" }`
+
+---
+
+#### `GET /api/groups/:id`
+
+获取单个分组（含所属项目列表）。
+
+**响应** `200`：ProjectGroup 对象（含 `projects` 字段）  
+**响应** `404`：`{ "error": "not found" }`
+
+---
+
+#### `PATCH /api/groups/:id`
+
+更新分组属性，只需传要修改的字段。
+
+**请求体**（所有字段可选）：
+```json
+{
+  "name": "新名称",
+  "collapsed": true
+}
+```
+
+**响应** `200`：更新后的 ProjectGroup 对象  
+**响应** `404`：`{ "error": "not found" }`
+
+---
+
+#### `DELETE /api/groups/:id`
+
+删除分组，分组内项目 `groupId` 置 `null`（移到未分组）。
+
+**响应** `200`：`{ "ok": true }`  
+**响应** `404`：`{ "error": "not found" }`
+
+---
+
+#### `POST /api/groups/reorder`
+
+重新排列分组顺序（拖拽后调用）。
+
+**请求体**：
+```json
+{
+  "ids": ["group_c", "group_a", "group_b"]
+}
+```
+
+**响应** `200`：`{ "ok": true }`
+
+---
+
+#### `POST /api/groups/:id/projects/reorder`
+
+重新排列分组内项目顺序（拖拽后调用）。
+
+**请求体**：
+```json
+{
+  "ids": ["proj_b", "proj_a", "proj_c"]
+}
+```
+
+**响应** `200`：`{ "ok": true }`  
+**响应** `404`：`{ "error": "not found" }`
+
+---
+
+#### `POST /api/ungrouped/reorder`
+
+重新排列未分组项目顺序（拖拽后调用）。
+
+**请求体**：
+```json
+{
+  "ids": ["proj_z", "proj_y"]
+}
+```
+
+**响应** `200`：`{ "ok": true }`
 
 ---
 

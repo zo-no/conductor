@@ -1,7 +1,7 @@
 # 项目分组（Project Groups）
 
 > 设计文档。描述 ProjectGroup 对象的数据模型、API、CLI 和 UI 行为。
-> 状态：草稿，待确认后执行。
+> 状态：已实现。
 
 ---
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Task, TaskLog, TaskOp } from '@conductor/types'
 import type { TaskRun } from '../../lib/api'
 import { api } from '../../lib/api'
+import { useT } from '../../lib/i18n'
 import { RunViewer } from './RunViewer'
 import { ConfirmDialog } from '../ui/Dialog'
 
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEdit, onDeleted }: Props) {
+  const t = useT()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [ops, setOps] = useState<TaskOp[]>([])
   const [logs, setLogs] = useState<TaskLog[]>([])
@@ -36,8 +38,8 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
   // Auto-dismiss toast
   useEffect(() => {
     if (!toast) return
-    const t = setTimeout(() => setToast(null), 3000)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(timer)
   }, [toast])
 
   useEffect(() => {
@@ -56,6 +58,44 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
   const sourceTask = task.sourceTaskId ? allTasks.find(t => t.id === task.sourceTaskId) : null
   const blockedByTask = task.blockedByTaskId ? allTasks.find(t => t.id === task.blockedByTaskId) : null
 
+  function statusLabel(status: string): string {
+    const map: Record<string, string> = {
+      pending: t('statusPending'),
+      running: t('statusRunning'),
+      done: t('statusDone'),
+      failed: t('statusFailed'),
+      cancelled: t('statusCancelled'),
+      blocked: t('statusBlocked'),
+    }
+    return map[status] ?? status
+  }
+
+  function statusColor(status: string): string {
+    const map: Record<string, string> = {
+      pending: 'text-gray-400',
+      running: 'text-green-600 font-medium',
+      done: 'text-gray-400',
+      failed: 'text-red-500',
+      cancelled: 'text-gray-400',
+      blocked: 'text-orange-500',
+    }
+    return map[status] ?? 'text-gray-400'
+  }
+
+  function opLabel(op: string): string {
+    const map: Record<string, string> = {
+      created: t('opCreated'),
+      triggered: t('opTriggered'),
+      status_changed: t('opStatusChanged'),
+      done: t('opDone'),
+      cancelled: t('opCancelled'),
+      review_created: t('opReviewCreated'),
+      unblocked: t('opUnblocked'),
+      deleted: t('opDeleted'),
+    }
+    return map[op] ?? op
+  }
+
   async function handleRun() {
     await api.tasks.run(task.id)
     onRefresh()
@@ -70,14 +110,14 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
     await api.tasks.done(task.id)
     onRefresh()
     // Show feedback — find if any AI task depends on this human task
-    const dependents = allTasks.filter(t =>
-      t.dependsOn === task.id || t.blockedByTaskId === task.id
+    const dependents = allTasks.filter(dep =>
+      dep.dependsOn === task.id || dep.blockedByTaskId === task.id
     )
     if (dependents.length > 0) {
-      const names = dependents.map(t => `「${t.title}」`).join('、')
-      setToast(`已完成，AI 任务 ${names} 已触发`)
+      const names = dependents.map(dep => `「${dep.title}」`).join('、')
+      setToast(t('aiTriggered', names))
     } else {
-      setToast('已标记完成')
+      setToast(t('markedDone'))
     }
   }
 
@@ -95,8 +135,8 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
     <>
     {confirmDelete && (
       <ConfirmDialog
-        message={`确定删除任务「${task.title}」？`}
-        confirmLabel="删除"
+        message={t('confirmDeleteTask', task.title)}
+        confirmLabel={t('confirmDelete')}
         danger
         onConfirm={handleDeleteConfirmed}
         onCancel={() => setConfirmDelete(false)}
@@ -111,7 +151,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
             <span className={`text-xs ${
               task.assignee === 'ai' ? 'text-gray-400' : 'text-gray-400'
             }`}>
-              {task.assignee === 'ai' ? 'AI' : '人类'}
+              {task.assignee === 'ai' ? t('assigneeAI') : t('assigneeHuman')}
             </span>
             <span className="text-xs text-gray-400">{task.kind}</span>
             <span className={`text-xs ${statusColor(task.status)}`}>
@@ -120,12 +160,12 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
           </div>
         </div>
         <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-          <button onClick={onEdit} className="text-gray-400 hover:text-gray-600 p-0.5" title="编辑">
+          <button onClick={onEdit} className="text-gray-400 hover:text-gray-600 p-0.5" title={t('editTaskTitle')}>
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </button>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-0.5" title="关闭">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-0.5" title={t('cancel')}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -148,15 +188,15 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
         {(task.assignee === 'ai'
           ? ['info', 'history', 'ops'] as const
           : ['info', 'ops'] as const
-        ).map(t => (
+        ).map(tabKey => (
           <button
-            key={t}
-            onClick={() => { setTab(t as any); setSelectedRun(null) }}
+            key={tabKey}
+            onClick={() => { setTab(tabKey as any); setSelectedRun(null) }}
             className={`flex-1 py-2 text-xs font-medium ${
-              tab === t ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-400 hover:text-gray-600'
+              tab === tabKey ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-400 hover:text-gray-600'
             }`}
           >
-            {{ info: '详情', history: '历史', ops: '日志' }[t]}
+            {{ info: t('tabInfo'), history: t('tabHistory'), ops: t('tabOps') }[tabKey]}
           </button>
         ))}
       </div>
@@ -177,7 +217,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
         {tab === 'history' && !selectedRun && (
           <div className="overflow-y-auto">
             {runs.length === 0 && logs.length === 0 && (
-              <p className="text-sm text-gray-400 px-4 py-4">暂无执行记录</p>
+              <p className="text-sm text-gray-400 px-4 py-4">{t('noRuns')}</p>
             )}
             {/* Merge runs and logs by startedAt, runs take precedence */}
             {(() => {
@@ -221,9 +261,9 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
                               run.status === 'failed' ? 'text-red-500' :
                               run.status === 'running' ? 'text-blue-600' : 'text-gray-400'
                             }`}>
-                              {run.status === 'done' ? '✓ 成功' :
-                               run.status === 'failed' ? '✗ 失败' :
-                               run.status === 'running' ? '执行中' : '已取消'}
+                              {run.status === 'done' ? t('runDone') :
+                               run.status === 'failed' ? t('runFailed') :
+                               run.status === 'running' ? t('runRunning') : t('runCancelled')}
                             </span>
                             <span className="text-xs text-gray-300">{run.triggeredBy}</span>
                           </div>
@@ -280,16 +320,16 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
           <div className="p-4 space-y-4">
             {task.description && (
               <div>
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">描述</label>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('description')}</label>
                 <p className="mt-1 text-sm text-gray-700">{task.description}</p>
               </div>
             )}
 
             {task.dependsOn && (
               <div>
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">前置任务</label>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('dependsOnLabel')}</label>
                 {(() => {
-                  const dep = allTasks.find(t => t.id === task.dependsOn)
+                  const dep = allTasks.find(d => d.id === task.dependsOn)
                   return dep
                     ? <p className="mt-1 text-sm text-blue-600">{dep.title}</p>
                     : <p className="mt-1 text-xs text-gray-400 font-mono">{task.dependsOn}</p>
@@ -299,28 +339,28 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
 
             {task.waitingInstructions && (
               <div>
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">完成说明</label>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('waitingInstructions')}</label>
                 <p className="mt-1 text-sm text-gray-700 bg-orange-50 rounded p-2">{task.waitingInstructions}</p>
               </div>
             )}
 
             {sourceTask && (
               <div>
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">来源任务</label>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('sourceTask')}</label>
                 <p className="mt-1 text-sm text-blue-600">{sourceTask.title}</p>
               </div>
             )}
 
             {blockedByTask && (
               <div>
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">等待</label>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('waitingFor')}</label>
                 <p className="mt-1 text-sm text-orange-600">{blockedByTask.title}</p>
               </div>
             )}
 
             {task.executor && (
               <div>
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">执行器</label>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('executor')}</label>
                 <p className="mt-1 text-xs text-gray-500 font-mono bg-gray-50 rounded p-2">
                   {task.executor.kind}
                   {task.executor.kind === 'ai_prompt' && (
@@ -338,7 +378,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
 
             {task.scheduleConfig && (
               <div>
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">调度</label>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('schedule')}</label>
                 <p className="mt-1 text-sm text-gray-700">
                   {task.scheduleConfig.kind === 'scheduled' && (
                     new Date(task.scheduleConfig.scheduledAt).toLocaleString('zh-CN')
@@ -359,7 +399,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
 
             {task.completionOutput && (
               <div>
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">完成输出</label>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('completionOutput')}</label>
                 <p className="mt-1 text-sm text-gray-700 bg-gray-50 rounded p-2 whitespace-pre-wrap">{task.completionOutput}</p>
               </div>
             )}
@@ -368,7 +408,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
 
         {tab === 'ops' && (
           <div className="overflow-y-auto">
-            {ops.length === 0 && <p className="text-sm text-gray-400 px-4 py-4">暂无操作记录</p>}
+            {ops.length === 0 && <p className="text-sm text-gray-400 px-4 py-4">{t('noOps')}</p>}
             {ops.map(op => (
               <div key={op.id} className="flex items-start gap-2 text-xs px-4 py-2.5 border-b border-gray-50">
                 <span className="text-gray-400 flex-shrink-0 w-28">
@@ -397,7 +437,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
             <button
               onClick={handleToggleEnabled}
               className="flex items-center gap-1.5 group"
-              title={task.enabled ? '暂停调度' : '恢复调度'}
+              title={task.enabled ? t('pauseSchedule') : t('resumeSchedule')}
             >
               <div className={[
                 'relative w-8 h-4 rounded-full transition-colors duration-200',
@@ -414,7 +454,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
           {/* Delete — low-key */}
           <button
             onClick={handleDelete}
-            title="删除"
+            title={t('delete')}
             className="text-gray-300 hover:text-red-400 transition-colors p-1"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -434,7 +474,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              完成
+              {t('markDone')}
             </button>
           )}
 
@@ -445,7 +485,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
               </span>
-              执行中
+              {t('statusRunning')}
             </span>
           )}
 
@@ -458,7 +498,7 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
               <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
-              {task.status === 'failed' ? '重试' : '执行'}
+              {task.status === 'failed' ? t('retry') : t('run')}
             </button>
           )}
         </div>
@@ -466,33 +506,4 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
     </aside>
     </>
   )
-}
-
-function statusLabel(status: string): string {
-  const map: Record<string, string> = {
-    pending: '待执行', running: '执行中', done: '完成',
-    failed: '失败', cancelled: '已取消', blocked: '等待中',
-  }
-  return map[status] ?? status
-}
-
-function statusColor(status: string): string {
-  const map: Record<string, string> = {
-    pending: 'text-gray-400',
-    running: 'text-green-600 font-medium',
-    done: 'text-gray-400',
-    failed: 'text-red-500',
-    cancelled: 'text-gray-400',
-    blocked: 'text-orange-500',
-  }
-  return map[status] ?? 'text-gray-400'
-}
-
-function opLabel(op: string): string {
-  const map: Record<string, string> = {
-    created: '创建', triggered: '触发', status_changed: '状态变更',
-    done: '完成', cancelled: '取消', review_created: '创建审核任务',
-    unblocked: '解除阻塞', deleted: '删除',
-  }
-  return map[op] ?? op
 }

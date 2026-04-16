@@ -39,6 +39,8 @@ conductor version        # 确认已安装
 conductor daemon status  # 可选，查看调度器是否在运行
 ```
 
+> **快捷参考**：运行 `conductor help-ai` 获取 JSON 格式速查表。覆盖任务、项目、分组等所有常用操作，包括分组管理意图（`list groups`、`create group`、`add project to group`、`hide project from sidebar` 等）。
+
 ### 第二步：找到你要操作的项目
 
 ```bash
@@ -47,10 +49,18 @@ conductor project list --json
 
 输出示例：
 ```json
-[{ "id": "proj_a1b2c3", "name": "每日任务", "archived": false }]
+[{ "id": "proj_a1b2c3", "name": "每日任务", "archived": false, "groupId": null, "pinned": true }]
 ```
 
 > 如果没有合适的项目，用 `conductor project create --name "..." --json` 创建一个。
+
+项目可以归属于**分组（ProjectGroup）**。查看当前分组结构：
+
+```bash
+conductor group list --json
+```
+
+如需把项目加入分组或了解分组管理，见下方 [分组管理](#分组管理)。
 
 ### 第三步：根据你的目标选择操作
 
@@ -201,6 +211,39 @@ conductor task done <task-id> --output "完成说明（可选）" --json
 
 ```bash
 conductor task cancel <task-id> --json
+```
+
+---
+
+### 分组管理
+
+项目可以归属于分组，分组在侧边栏按层级展示。AI 可通过 CLI 完整操作分组：
+
+```bash
+# 查看所有分组（含各分组内的项目）
+conductor group list --json
+
+# 创建分组
+conductor group create --name "Q2 产品研发" --created-by ai --json
+# → { "id": "group_abc", "name": "Q2 产品研发", ... }
+
+# 将项目加入分组
+conductor project update <project-id> --group <group-id> --json
+
+# 将项目移出分组（回到未分组）
+conductor project update <project-id> --no-group --json
+
+# 将后台项目设为不固定显示（折叠到侧边栏"更多"区）
+conductor project update <project-id> --no-pin --json
+
+# 重新排列分组顺序
+conductor group reorder <id1> <id2> ... --json
+
+# 重新排列分组内项目顺序
+conductor group reorder-projects <group-id> <proj-id1> <proj-id2> ... --json
+
+# 删除分组（分组内项目移到未分组）
+conductor group delete <group-id> --json
 ```
 
 ---

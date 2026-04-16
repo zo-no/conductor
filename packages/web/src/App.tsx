@@ -220,7 +220,7 @@ export default function App() {
     return (
       <>
         <MobileLayout
-          projects={projects}
+          projectsView={projectsView}
           tasks={projectTasks}
           allTasks={tasks}
           selectedProjectId={selectedProjectId}
@@ -236,6 +236,7 @@ export default function App() {
           onNewTask={handleNewTask}
           onSettings={setSettingsProject}
           onTabChange={setAssigneeTab}
+          onReloadProjects={loadProjects}
         />
         {modals}
       </>
@@ -366,7 +367,7 @@ export default function App() {
 // ─── Mobile Layout ────────────────────────────────────────────────────────────
 
 interface MobileProps {
-  projects: Project[]
+  projectsView: ProjectsView
   tasks: Task[]
   allTasks: Task[]
   selectedProjectId: string | null
@@ -382,18 +383,23 @@ interface MobileProps {
   onNewTask: () => void
   onSettings: (project: Project) => void
   onTabChange: (tab: AssigneeTab) => void
+  onReloadProjects: () => void
 }
 
 function MobileLayout({
-  projects, tasks, allTasks, selectedProjectId, selectedTask,
+  projectsView, tasks, allTasks, selectedProjectId, selectedTask,
   assigneeTab, onSelectProject, onSelectTask, onCloseTask,
   onEditTask, onDeletedTask, onRefresh, onNewProject, onNewTask, onSettings, onTabChange,
+  onReloadProjects,
 }: MobileProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [groupExpanded, setGroupExpanded] = useState<Record<string, boolean>>({})
   const selectedTaskId = selectedTask?.id
-  const currentProject = projects.find(p => p.id === selectedProjectId)
-  const activeProjects = projects.filter(p => !p.archived)
-  const archivedProjects = projects.filter(p => p.archived)
+  const allProjects = [...projectsView.groups.flatMap(g => g.projects), ...projectsView.ungrouped]
+  const currentProject = allProjects.find(p => p.id === selectedProjectId)
+  // visible = non-system, non-archived ungrouped
+  const activeUngrouped = projectsView.ungrouped.filter(p => !p.archived && p.createdBy !== 'system')
+  const archivedProjects = [...projectsView.groups.flatMap(g => g.projects), ...projectsView.ungrouped].filter(p => p.archived && p.createdBy !== 'system')
 
   // Swipe right from left edge to open drawer, swipe left to close
   const swipe = useSwipe(
@@ -538,28 +544,104 @@ function MobileLayout({
 
         {/* Project list */}
         <nav className="flex-1 overflow-y-auto py-2">
-          {activeProjects.map(p => (
-            <button
-              key={p.id}
-              onClick={() => { onSelectProject(p.id); setDrawerOpen(false) }}
-              className={[
-                'w-full flex items-center px-4 py-2.5 text-sm text-left transition-colors',
-                selectedProjectId === p.id
-                  ? 'bg-blue-50 text-blue-700 font-medium'
-                  : 'text-gray-700 hover:bg-gray-50',
-              ].join(' ')}
-            >
-              <span className="flex-1 truncate">{p.name}</span>
-              {selectedProjectId === p.id && (
-                <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </button>
-          ))}
+          {/* All projects */}
+          <button
+            onClick={() => { onSelectProject('__all__'); setDrawerOpen(false) }}
+            className={[
+              'w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-colors',
+              selectedProjectId === '__all__' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-500 hover:bg-gray-50',
+            ].join(' ')}
+          >
+            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            全部
+          </button>
 
+          {/* Groups */}
+          {projectsView.groups.map(group => {
+            const isOpen = groupExpanded[group.id] !== false && !group.collapsed
+            const pinnedProjects = group.projects.filter(p => p.pinned !== false && !p.archived)
+            const unpinnedProjects = group.projects.filter(p => p.pinned === false && !p.archived)
+            return (
+              <div key={group.id} className="border-t border-gray-50 mt-1 pt-1">
+                <button
+                  onClick={() => setGroupExpanded(prev => ({ ...prev, [group.id]: !isOpen }))}
+                  className="w-full flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-600"
+                >
+                  <svg className={`w-2.5 h-2.5 transition-transform ${isOpen ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  {group.name}
+                </button>
+                {isOpen && (
+                  <>
+                    {pinnedProjects.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => { onSelectProject(p.id); setDrawerOpen(false) }}
+                        className={[
+                          'w-full flex items-center px-6 py-2 text-sm text-left transition-colors',
+                          selectedProjectId === p.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50',
+                        ].join(' ')}
+                      >
+                        <span className="flex-1 truncate">{p.name}</span>
+                        {selectedProjectId === p.id && (
+                          <svg className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                    {unpinnedProjects.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => { onSelectProject(p.id); setDrawerOpen(false) }}
+                        className={[
+                          'w-full flex items-center px-6 py-2 text-sm text-left transition-colors text-gray-400',
+                          selectedProjectId === p.id ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-gray-50',
+                        ].join(' ')}
+                      >
+                        <span className="flex-1 truncate">{p.name}</span>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            )
+          })}
+
+          {/* Ungrouped active */}
+          {activeUngrouped.length > 0 && (
+            <div className={projectsView.groups.length > 0 ? 'border-t border-gray-50 mt-1 pt-1' : ''}>
+              {projectsView.groups.length > 0 && (
+                <div className="px-4 py-1">
+                  <span className="text-xs text-gray-300 uppercase tracking-wider">未分组</span>
+                </div>
+              )}
+              {activeUngrouped.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => { onSelectProject(p.id); setDrawerOpen(false) }}
+                  className={[
+                    'w-full flex items-center px-4 py-2.5 text-sm text-left transition-colors',
+                    selectedProjectId === p.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50',
+                  ].join(' ')}
+                >
+                  <span className="flex-1 truncate">{p.name}</span>
+                  {selectedProjectId === p.id && (
+                    <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Archived */}
           {archivedProjects.length > 0 && (
-            <div className="mt-3 px-4">
+            <div className="mt-3 px-4 border-t border-gray-50 pt-2">
               <span className="text-xs text-gray-300">已归档</span>
               {archivedProjects.map(p => (
                 <button
@@ -574,8 +656,8 @@ function MobileLayout({
           )}
         </nav>
 
-        {/* New project */}
-        <div className="p-4 border-t border-gray-100">
+        {/* Bottom actions */}
+        <div className="p-4 border-t border-gray-100 space-y-1">
           <button
             onClick={() => { onNewProject(); setDrawerOpen(false) }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-gray-800 hover:bg-gray-50 rounded-md"
@@ -584,6 +666,20 @@ function MobileLayout({
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
             新建项目
+          </button>
+          <button
+            onClick={async () => {
+              const name = window.prompt('分组名称')
+              if (!name?.trim()) return
+              await api.groups.create({ name: name.trim() })
+              onReloadProjects()
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-md"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            新建分组
           </button>
         </div>
         </div>{/* end inner card */}
