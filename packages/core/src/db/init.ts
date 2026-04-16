@@ -4,7 +4,6 @@ import { mkdirSync } from 'fs'
 import { join } from 'path'
 
 const CONDUCTOR_DIR = join(homedir(), '.conductor')
-const DB_PATH = process.env.CONDUCTOR_TEST_DB ?? join(CONDUCTOR_DIR, 'db.sqlite')
 
 let _db: Database | null = null
 
@@ -14,8 +13,9 @@ export function resetDb(): void {
 
 export function getDb(): Database {
   if (_db) return _db
+  const dbPath = process.env.CONDUCTOR_TEST_DB ?? join(CONDUCTOR_DIR, 'db.sqlite')
   mkdirSync(CONDUCTOR_DIR, { recursive: true })
-  _db = new Database(DB_PATH, { create: true })
+  _db = new Database(dbPath, { create: true })
   _db.run('PRAGMA journal_mode = WAL')
   _db.run('PRAGMA busy_timeout = 5000')
   _db.run('PRAGMA foreign_keys = ON')

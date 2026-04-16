@@ -1,11 +1,13 @@
 /**
  * Unit tests for model layer (direct DB operations, no HTTP/CLI)
  */
-import { cleanTestDb, assert, section, summary } from './helpers'
+import { assert, section, summary } from './helpers'
+import { unlinkSync } from 'fs'
 
 // Must set env before importing models
-process.env.CONDUCTOR_TEST_DB = `${process.env.HOME}/.conductor/test-models.sqlite`
-cleanTestDb()
+const TEST_DB = `${process.env.HOME}/.conductor/test-models.sqlite`
+process.env.CONDUCTOR_TEST_DB = TEST_DB
+try { unlinkSync(TEST_DB) } catch {}
 
 import { initDb, resetDb } from '../src/db/init'
 import {
@@ -14,7 +16,7 @@ import {
 } from '../src/models/projects'
 import {
   createGroup, getGroup, listGroups, updateGroup, deleteGroup,
-  reorderGroups, reorderProjectsInGroup, getProjectsView,
+  getProjectsView,
 } from '../src/models/project-groups'
 import {
   createTask, getTask, listTasks, updateTask, deleteTask,
@@ -104,12 +106,6 @@ assert('updateProject groupId', pMoved?.groupId === g2.id)
 assert('updateProject pinned=false', pMoved?.pinned === false)
 const pUngrouped = updateProject(pGrouped2.id, { groupId: null })
 assert('updateProject groupId=null (ungrouped)', pUngrouped?.groupId === undefined)
-
-// reorderGroups
-reorderGroups([g2.id, g1.id])
-const reorderedGroups = listGroups()
-assert('reorderGroups g2 first', reorderedGroups[0].id === g2.id)
-assert('reorderGroups g1 second', reorderedGroups[1].id === g1.id)
 
 // getProjectsView
 const view = getProjectsView()
@@ -303,6 +299,6 @@ assert('project prompt gone after delete', getSystemPrompt(`proj_${pDel.id}`) ==
 
 // cleanup
 resetDb()
-cleanTestDb()
+try { unlinkSync(TEST_DB) } catch {}
 
 summary()

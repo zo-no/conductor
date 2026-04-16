@@ -49,6 +49,17 @@ Conductor 是本地优先的任务调度系统。详见 [docs/architecture.md](d
 
 AI Agent 操作 Conductor 时，先运行 `conductor help-ai` 查看命令速查表，不要凭记忆猜命令。
 
+## 前端包说明
+
+项目有两个前端包：
+
+| 包 | 路径 | 状态 |
+|----|------|------|
+| `@conductor/web` | `packages/web/` | **当前生产版本**，功能完整，保持维护 |
+| `@conductor/web-next` | `packages/web-next/` | 探索性迁移，**暂缓开发**，不作为主力版本 |
+
+新功能开发在 `packages/web/` 里进行，`packages/web-next/` 暂时冻结。
+
 ## 开发规范
 
 1. Model 层无 HTTP 依赖
