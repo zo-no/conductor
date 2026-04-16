@@ -8,7 +8,7 @@ import {
 } from '../../models/tasks'
 import { getTaskLogs } from '../../models/task-logs'
 import { getTaskOps, createTaskOp } from '../../models/task-ops'
-import { executeTask } from '../../services/executor'
+import { executeTask, killTask } from '../../services/executor'
 import { createTaskLog, updateTaskLogCompleted } from '../../models/task-logs'
 import { print, error } from './output'
 import { initDb } from '../../db/init'
@@ -318,6 +318,7 @@ export function registerTaskCommands(program: Command): void {
       const t = getTask(id)
       if (!t) error(`task ${id} not found`)
       const prevStatus = t!.status
+      killTask(id)
       const updated = updateTask(id, { status: 'cancelled' })
       createTaskOp({ taskId: id, op: 'cancelled', fromStatus: prevStatus, toStatus: 'cancelled', actor: 'human' })
       print(updated, opts.json)

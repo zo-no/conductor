@@ -7,6 +7,7 @@ import { getTaskLogs } from '../../models/task-logs'
 import { getTaskOps } from '../../models/task-ops'
 import { createTaskOp } from '../../models/task-ops'
 import { runTask, registerTask, unregisterTask } from '../../services/scheduler'
+import { killTask } from '../../services/executor'
 import { emit } from '../../services/events'
 
 const app = new Hono()
@@ -147,6 +148,7 @@ app.post('/:id/cancel', async (c) => {
   const task = getTask(id)
   if (!task) return c.json({ error: 'not found' }, 404)
   const prevStatus = task.status
+  killTask(id)
   const updated = updateTask(id, { status: 'cancelled' })
   createTaskOp({ taskId: id, op: 'cancelled', fromStatus: prevStatus, toStatus: 'cancelled', actor: 'human' })
   emit({ type: 'task_updated', data: { taskId: id, projectId: task.projectId } })

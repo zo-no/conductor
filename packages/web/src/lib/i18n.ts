@@ -190,6 +190,7 @@ const translations = {
 
     // Toast
     markedDone: '已标记完成',
+    doneOutputPlaceholder: '填写意见（可选）',
     aiTriggered: (names: string) => `已完成，AI 任务 ${names} 已触发`,
 
     // Ops labels
@@ -409,6 +410,7 @@ const translations = {
 
     // Toast
     markedDone: 'Marked as done',
+    doneOutputPlaceholder: 'Add a note (optional)',
     aiTriggered: (names: string) => `Done — AI task ${names} triggered`,
 
     // Ops labels

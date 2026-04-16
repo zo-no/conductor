@@ -1,6 +1,9 @@
 # 语音通知（Voice Notice）
 
-AI 任务执行完毕（`done` 或 `failed`）时，Conductor 可以自动播报一条语音通知。
+Conductor 在以下两种情况会自动播报语音通知：
+
+1. **AI 任务完成/失败**：任务配置了 `--voice-notice` 时，执行完毕（`done` 或 `failed`）后播报
+2. **创建 human review 任务**：AI 任务配置了 `--review-on-complete` 时，执行完成后会创建 human todo，并播报 `"<任务名> 已完成，请查看待办任务"` 提醒用户
 
 ---
 

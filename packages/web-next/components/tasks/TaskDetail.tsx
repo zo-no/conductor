@@ -98,7 +98,11 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
 
   async function handleRun() {
     await api.tasks.run(task.id)
+    setTab('history')
     onRefresh()
+    // Script tasks finish very fast — poll a few times so user sees the result
+    setTimeout(() => onRefresh(), 800)
+    setTimeout(() => onRefresh(), 2000)
   }
 
   async function handleToggleEnabled() {

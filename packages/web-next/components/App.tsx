@@ -15,6 +15,7 @@ import { TaskForm } from '@/components/tasks/TaskForm'
 import { ProjectSettings } from '@/components/projects/ProjectSettings'
 import { SystemPromptDialog } from '@/components/projects/SystemPromptDialog'
 import { PromptDialog } from '@/components/ui/Dialog'
+import { NewProjectDialog } from '@/components/projects/NewProjectDialog'
 import { LoginPage } from '@/components/auth/LoginPage'
 
 type AssigneeTab = 'all' | 'human' | 'ai'
@@ -138,9 +139,12 @@ export default function App() {
     setNewProjectPrompt(true)
   }
 
-  async function handleNewProjectConfirm(name: string) {
+  async function handleNewProjectConfirm(data: { name: string; goal?: string; workDir?: string; enableBrain: boolean }) {
     setNewProjectPrompt(false)
-    const project = await api.projects.create({ name })
+    const project = await api.projects.create({ name: data.name, goal: data.goal, workDir: data.workDir })
+    if (data.enableBrain) {
+      await api.projects.enableBrain(project.id).catch(() => {})
+    }
     await loadProjects()
     setSelectedProjectId(project.id)
   }
@@ -237,10 +241,7 @@ export default function App() {
   const modals = (
     <>
       {newProjectPrompt && (
-        <PromptDialog
-          title={t('newProjectTitle')}
-          placeholder={t('newProjectPlaceholder')}
-          confirmLabel={t('create')}
+        <NewProjectDialog
           onConfirm={handleNewProjectConfirm}
           onCancel={() => setNewProjectPrompt(false)}
         />

@@ -1,11 +1,14 @@
 import { Command } from 'commander'
+import * as readline from 'readline'
 import {
   listProjects, getProject, createProject, updateProject,
   deleteProject, archiveProject, unarchiveProject,
 } from '../../models/projects'
-import { reorderProjectsInGroup } from '../../models/project-groups'
+import { createBrainTask } from '../../services/brain'
 import { print, error } from './output'
 import { initDb } from '../../db/init'
+
+// Note: CLI brain add writes to DB only — cron fires when daemon is running
 
 function ensureDb(): void { initDb() }
 
@@ -83,16 +86,6 @@ export function registerProjectCommands(program: Command): void {
     })
 
   proj
-    .command('reorder-ungrouped <ids...>')
-    .description('reorder ungrouped projects by providing all ungrouped project ids in new order')
-    .option('--json', 'output as JSON')
-    .action((ids, opts) => {
-      ensureDb()
-      reorderProjectsInGroup(null, ids)
-      print({ ok: true, order: ids }, opts.json)
-    })
-
-  proj
     .command('delete <id>')
     .description('delete a project')
     .option('--json', 'output as JSON')
@@ -124,4 +117,60 @@ export function registerProjectCommands(program: Command): void {
       if (!project) error(`project ${id} not found`)
       print(project, opts.json)
     })
+
+  proj
+    .command('init')
+    .description('interactively create a project with optional AI brain')
+    .action(async () => {
+      ensureDb()
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+      const ask = (q: string): Promise<string> => new Promise(resolve => rl.question(q, resolve))
+
+      console.log('\n🚀 创建新项目\n')
+
+      const name = (await ask('项目名称: ')).trim()
+      if (!name) { rl.close(); error('项目名称不能为空') }
+
+      const goal = (await ask('项目目标（可选，直接回车跳过）: ')).trim()
+      const workDir = (await ask('工作区目录（可选，直接回车跳过）: ')).trim()
+      const brainAnswer = (await ask('是否启用 AI 大脑？每 30 分钟自动规划任务 (y/N): ')).trim().toLowerCase()
+      rl.close()
+
+      const project = createProject({
+        name,
+        goal: goal || undefined,
+        workDir: workDir || undefined,
+      })
+
+      console.log(`\n✅ 项目已创建: ${project.id}`)
+      if (project.goal) console.log(`   目标: ${project.goal}`)
+      if (project.workDir) console.log(`   工作区: ${project.workDir}`)
+
+      if (brainAnswer === 'y' || brainAnswer === 'yes') {
+        const brain = createBrainTask(project.id)
+        console.log(`🧠 AI 大脑已启用: ${brain.id}`)
+        console.log(`   ⚠️  Cron 在 daemon 运行时生效 (每 30 分钟自动触发)`)
+      }
+
+      console.log('')
+      print(project, false)
+    })
+
+  proj
+    .command('brain')
+    .description('manage AI brain task for a project')
+    .addCommand(
+      new Command('add')
+        .description('add an AI brain task to an existing project')
+        .argument('<projectId>', 'project ID')
+        .option('--json', 'output as JSON')
+        .action((projectId, opts) => {
+          ensureDb()
+          const project = getProject(projectId)
+          if (!project) error(`project ${projectId} not found`)
+          const brain = createBrainTask(projectId)
+          if (!opts.json) console.log(`🧠 AI 大脑已启用 (Cron 在 daemon 运行时生效)`)
+          print(brain, opts.json)
+        })
+    )
 }

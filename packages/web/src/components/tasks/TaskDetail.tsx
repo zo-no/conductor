@@ -28,6 +28,8 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
     task.assignee === 'ai' && task.status === 'running' ? 'history' : 'info'
   )
   const [toast, setToast] = useState<string | null>(null)
+  const [doneInput, setDoneInput] = useState(false)
+  const [doneOutput, setDoneOutput] = useState('')
 
   // Auto-switch to history tab when task starts running
   useEffect(() => {
@@ -99,7 +101,11 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
 
   async function handleRun() {
     await api.tasks.run(task.id)
+    setTab('history')
     onRefresh()
+    // Script tasks finish very fast — poll a few times so user sees the result
+    setTimeout(() => onRefresh(), 800)
+    setTimeout(() => onRefresh(), 2000)
   }
 
   async function handleToggleEnabled() {
@@ -107,8 +113,10 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
     onRefresh()
   }
 
-  async function handleDone() {
-    await api.tasks.done(task.id)
+  async function handleDone(output?: string) {
+    await api.tasks.done(task.id, output)
+    setDoneInput(false)
+    setDoneOutput('')
     onRefresh()
     // Show feedback — find if any AI task depends on this human task
     const dependents = allTasks.filter(dep =>
@@ -468,15 +476,44 @@ export function TaskDetail({ task, allTasks, projectId, onClose, onRefresh, onEd
         <div className="flex items-center">
           {/* Human pending: done */}
           {task.assignee === 'human' && task.status === 'pending' && (
-            <button
-              onClick={handleDone}
-              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-xs font-medium rounded-lg hover:bg-green-600 active:scale-95 transition-all"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              {t('markDone')}
-            </button>
+            doneInput ? (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  type="text"
+                  value={doneOutput}
+                  onChange={e => setDoneOutput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleDone(doneOutput || undefined) }}
+                  placeholder={t('doneOutputPlaceholder')}
+                  className="text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-green-400 w-48"
+                />
+                <button
+                  onClick={() => handleDone(doneOutput || undefined)}
+                  className="flex items-center gap-1 px-3 py-2 bg-green-500 text-white text-xs font-medium rounded-lg hover:bg-green-600 active:scale-95 transition-all"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  {t('confirm')}
+                </button>
+                <button
+                  onClick={() => { setDoneInput(false); setDoneOutput('') }}
+                  className="px-3 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {t('cancel')}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setDoneInput(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-xs font-medium rounded-lg hover:bg-green-600 active:scale-95 transition-all"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                {t('markDone')}
+              </button>
+            )
           )}
 
           {/* AI running: pulse indicator */}

@@ -408,6 +408,8 @@ conductor task done <task-id> \
   [--json]
 ```
 
+**Web UI**：点击"标记完成"按钮后会展开 inline 输入框，可填写意见（可选）后提交。意见内容同样注入为 `{lastOutput}`。
+
 **限制**：只能操作 `assignee = human` 的任务。
 
 **行为**：
@@ -515,18 +517,6 @@ conductor project unarchive <project-id> [--json]
 
 ---
 
-#### `conductor project reorder-ungrouped`
-
-重新排列未分组项目的顺序（按传入顺序设置 order）。
-
-```bash
-conductor project reorder-ungrouped <proj-id1> <proj-id2> ... [--json]
-```
-
-**输出**：`{ ok: true }`
-
----
-
 ### 分组
 
 #### `conductor group list`
@@ -591,30 +581,6 @@ conductor group update <id> \
 
 ```bash
 conductor group delete <id> [--json]
-```
-
-**输出**：`{ ok: true }`
-
----
-
-#### `conductor group reorder`
-
-重新排列分组顺序（按传入顺序设置 order）。
-
-```bash
-conductor group reorder <id1> <id2> ... [--json]
-```
-
-**输出**：`{ ok: true }`
-
----
-
-#### `conductor group reorder-projects`
-
-重新排列分组内项目的顺序（按传入顺序设置 order）。
-
-```bash
-conductor group reorder-projects <groupId> <proj-id1> <proj-id2> ... [--json]
 ```
 
 **输出**：`{ ok: true }`
@@ -971,52 +937,6 @@ conductor version
 
 **响应** `200`：`{ "ok": true }`  
 **响应** `404`：`{ "error": "not found" }`
-
----
-
-#### `POST /api/groups/reorder`
-
-重新排列分组顺序（拖拽后调用）。
-
-**请求体**：
-```json
-{
-  "ids": ["group_c", "group_a", "group_b"]
-}
-```
-
-**响应** `200`：`{ "ok": true }`
-
----
-
-#### `POST /api/groups/:id/projects/reorder`
-
-重新排列分组内项目顺序（拖拽后调用）。
-
-**请求体**：
-```json
-{
-  "ids": ["proj_b", "proj_a", "proj_c"]
-}
-```
-
-**响应** `200`：`{ "ok": true }`  
-**响应** `404`：`{ "error": "not found" }`
-
----
-
-#### `POST /api/ungrouped/reorder`
-
-重新排列未分组项目顺序（拖拽后调用）。
-
-**请求体**：
-```json
-{
-  "ids": ["proj_z", "proj_y"]
-}
-```
-
-**响应** `200`：`{ "ok": true }`
 
 ---
 

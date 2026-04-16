@@ -1,4 +1,5 @@
 import { spawn } from 'child_process'
+import type { ChildProcess } from 'child_process'
 import { homedir } from 'os'
 import { join, resolve } from 'path'
 import type { Task, ScriptExecutor, AiPromptExecutor, HttpExecutor } from '@conductor/types'
@@ -7,6 +8,20 @@ import { getProject } from '../models/projects'
 import { getDefaultPrompt, getSystemPrompt, getProjectPromptKey } from '../models/system-prompts'
 import { createRun, completeRun, appendSpoolLine } from '../models/task-runs'
 import { emit } from './events'
+
+// ─── Running process registry ─────────────────────────────────────────────────
+
+const runningProcs = new Map<string, ChildProcess>()
+
+export function killTask(taskId: string): boolean {
+  const proc = runningProcs.get(taskId)
+  if (!proc) return false
+  proc.kill('SIGTERM')
+  setTimeout(() => {
+    if (runningProcs.has(taskId)) proc.kill('SIGKILL')
+  }, 5_000)
+  return true
+}
 
 // ─── Context injection ────────────────────────────────────────────────────────
 
@@ -21,7 +36,10 @@ function buildVars(task: Task): Record<string, string> {
     datetime: new Date().toISOString(),
     taskTitle: task.title,
     taskDescription: task.description ?? '',
+    projectId: task.projectId,
     projectName: project?.name ?? '',
+    projectGoal: project?.goal ?? '',
+    workDir: project?.workDir ?? '',
     completionOutput: task.completionOutput ?? '',
     lastOutput: task.completionOutput ?? '',
     ...(task.executorOptions?.customVars ?? {}),
@@ -82,6 +100,8 @@ export function executeScript(task: Task): Promise<ExecutionResult> {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
+    runningProcs.set(task.id, proc)
+
     const stdout: Buffer[] = []
     const stderr: Buffer[] = []
     proc.stdout.on('data', (chunk: Buffer) => stdout.push(chunk))
@@ -96,6 +116,7 @@ export function executeScript(task: Task): Promise<ExecutionResult> {
 
     proc.on('close', (code) => {
       clearTimeout(timer)
+      runningProcs.delete(task.id)
       const output = [...stdout, ...stderr].map(b => b.toString()).join('')
       if (timedOut) {
         resolve({ success: false, output, error: 'execution timeout' })
@@ -108,6 +129,7 @@ export function executeScript(task: Task): Promise<ExecutionResult> {
 
     proc.on('error', (err) => {
       clearTimeout(timer)
+      runningProcs.delete(task.id)
       resolve({ success: false, output: '', error: err.message })
     })
   })
@@ -196,6 +218,8 @@ export function executeAiPrompt(
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
+    runningProcs.set(task.id, proc)
+
     let lastAssistantText = ''
     let sessionId: string | undefined
     let timedOut = false
@@ -240,6 +264,7 @@ export function executeAiPrompt(
 
     proc.on('close', (code) => {
       clearTimeout(timer)
+      runningProcs.delete(task.id)
       const output = lastAssistantText
       const stderr = stderrLines.join('')
 
@@ -258,6 +283,7 @@ export function executeAiPrompt(
 
     proc.on('error', (err) => {
       clearTimeout(timer)
+      runningProcs.delete(task.id)
       resolve({ success: false, output: '', error: err.message })
     })
   })
@@ -305,5 +331,6 @@ export async function executeTask(taskId: string): Promise<ExecutionResult> {
     case 'script':    return executeScript(task)
     case 'ai_prompt': return executeAiPrompt(task)
     case 'http':      return executeHttp(task)
+    default:          return { success: false, output: '', error: 'unknown executor kind' }
   }
 }

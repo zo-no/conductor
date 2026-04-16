@@ -3,6 +3,9 @@ import {
   listProjects, getProject, createProject, updateProject,
   deleteProject, archiveProject, unarchiveProject, isDefaultProject,
 } from '../../models/projects'
+import { createBrainTask, getBrainTask } from '../../services/brain'
+import { registerTask } from '../../services/scheduler'
+import { emit } from '../../services/events'
 
 const app = new Hono()
 
@@ -61,6 +64,21 @@ app.post('/:id/unarchive', (c) => {
   const project = unarchiveProject(c.req.param('id'))
   if (!project) return c.json({ error: 'not found' }, 404)
   return c.json(project)
+})
+
+app.post('/:id/brain', (c) => {
+  const id = c.req.param('id')
+  const project = getProject(id)
+  if (!project) return c.json({ error: 'not found' }, 404)
+
+  // Idempotent: return existing brain if already exists
+  const existing = getBrainTask(id)
+  if (existing) return c.json(existing, 200)
+
+  const task = createBrainTask(id)
+  registerTask(task)
+  emit({ type: 'task_created', data: { taskId: task.id, projectId: id } })
+  return c.json(task, 201)
 })
 
 export default app

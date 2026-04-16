@@ -1,6 +1,6 @@
 import { Cron } from 'croner'
 import type { Task, RecurringConfig } from '@conductor/types'
-import { listTasks, getTask, updateTask, reconcileRunningTasks, getBlockedByTask } from '../models/tasks'
+import { listTasks, getTask, updateTask, reconcileRunningTasks, getBlockedByTask, getDependentTasks } from '../models/tasks'
 import { createTaskLog, updateTaskLogCompleted } from '../models/task-logs'
 import { createTaskOp } from '../models/task-ops'
 import { createTask } from '../models/tasks'
@@ -93,6 +93,15 @@ export async function runTask(
   runningTasks.add(taskId)
   try {
     const result = await executeTask(taskId)
+
+    // Check if cancelled while running
+    const fresh = getTask(taskId)!
+    if (fresh.status === 'cancelled') {
+      updateTaskLogCompleted(logEntry.id, 'failed', result.output, 'cancelled by user')
+      console.log(`${TAG} task ${taskId} was cancelled`)
+      return
+    }
+
     const finalStatus = result.success ? 'success' : 'failed'
 
     updateTaskLogCompleted(logEntry.id, finalStatus, result.output, result.error)
@@ -100,7 +109,6 @@ export async function runTask(
     const newTaskStatus = result.success ? 'done' : 'failed'
 
     // recurring tasks stay pending after done
-    const fresh = getTask(taskId)!
     const nextStatus = fresh.kind === 'recurring' && result.success ? 'pending' : newTaskStatus
 
     updateTask(taskId, {
@@ -148,6 +156,7 @@ export async function runTask(
         waitingInstructions: `Task "${fresh.title}" completed. Please review the output and mark done.`,
       })
       createTaskOp({ taskId, op: 'review_created', actor: 'scheduler', note: reviewTask.id })
+      speak(`${fresh.title} 已完成，请查看待办任务`).catch(() => {})
     }
 
     // Unblock tasks waiting on this one
@@ -164,6 +173,7 @@ export async function runTask(
 // ─── Unblock ──────────────────────────────────────────────────────────────────
 
 async function unblockDependents(completedTaskId: string, output: string): Promise<void> {
+  // 1. blockedByTaskId: tasks explicitly blocked waiting for this one
   const blocked = getBlockedByTask(completedTaskId)
   for (const task of blocked) {
     updateTask(task.id, {
@@ -180,7 +190,22 @@ async function unblockDependents(completedTaskId: string, output: string): Promi
       note: `unblocked by ${completedTaskId}`,
     })
     console.log(`${TAG} unblocked task ${task.id}`)
-    // Auto-trigger the unblocked task
+    await runTask(task.id, 'scheduler')
+  }
+
+  // 2. dependsOn: tasks that declared this task as a prerequisite
+  const dependents = getDependentTasks(completedTaskId)
+  for (const task of dependents) {
+    updateTask(task.id, { completionOutput: output || undefined })
+    createTaskOp({
+      taskId: task.id,
+      op: 'unblocked',
+      fromStatus: 'pending',
+      toStatus: 'pending',
+      actor: 'scheduler',
+      note: `dependency ${completedTaskId} completed`,
+    })
+    console.log(`${TAG} triggering dependent task ${task.id}`)
     await runTask(task.id, 'scheduler')
   }
 }

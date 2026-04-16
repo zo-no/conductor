@@ -65,8 +65,6 @@ export const api = {
     delete: (id: string) => request<{ ok: boolean }>(`/projects/${id}`, { method: 'DELETE' }),
     archive: (id: string) => request<Project>(`/projects/${id}/archive`, { method: 'POST' }),
     unarchive: (id: string) => request<Project>(`/projects/${id}/unarchive`, { method: 'POST' }),
-    reorderUngrouped: (ids: string[]) =>
-      request<{ ok: boolean }>('/ungrouped/reorder', { method: 'POST', body: JSON.stringify({ ids }) }),
   },
 
   groups: {
@@ -77,10 +75,6 @@ export const api = {
     update: (id: string, data: { name?: string; collapsed?: boolean }) =>
       request<ProjectGroup>(`/groups/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => request<{ ok: boolean }>(`/groups/${id}`, { method: 'DELETE' }),
-    reorder: (ids: string[]) =>
-      request<{ ok: boolean }>('/groups/reorder', { method: 'POST', body: JSON.stringify({ ids }) }),
-    reorderProjects: (groupId: string, ids: string[]) =>
-      request<{ ok: boolean }>(`/groups/${groupId}/projects/reorder`, { method: 'POST', body: JSON.stringify({ ids }) }),
   },
 
   prompts: {
