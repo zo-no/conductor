@@ -278,9 +278,10 @@ export function Sidebar({
   }
 
   const { groups, ungrouped } = projectsView
-  // Hide system projects that are explicitly unpinned (e.g. proj_conductor maintenance project)
-  // System projects with pinned=true (e.g. proj_default 日常事务) should remain visible
-  const visibleUngrouped = ungrouped.filter(p => !(p.createdBy === 'system' && p.pinned === false))
+  // Only hide the background maintenance project (proj_conductor).
+  // All other projects — including system defaults like proj_default (日常事务) — should be visible.
+  const HIDDEN_PROJECT_IDS = new Set(['proj_conductor'])
+  const visibleUngrouped = ungrouped.filter(p => !HIDDEN_PROJECT_IDS.has(p.id))
   const archivedUngrouped = visibleUngrouped.filter(p => p.archived)
   const activeUngrouped = visibleUngrouped.filter(p => !p.archived)
 
