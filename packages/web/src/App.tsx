@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Project, ProjectsView, Task } from '@conductor/types'
 import { api } from './lib/api'
+import { useT } from './lib/i18n'
 import { useSSE } from './hooks/useSSE'
 import { useWindowWidth } from './hooks/useWindowWidth'
 import { useSwipe } from './hooks/useSwipe'
@@ -15,6 +16,7 @@ import { PromptDialog } from './components/ui/Dialog'
 type AssigneeTab = 'all' | 'human' | 'ai'
 
 export default function App() {
+  const t = useT()
   const [projectsView, setProjectsView] = useState<ProjectsView>({ groups: [], ungrouped: [] })
   // flat list for backward compat (task filtering, etc.)
   const projects: Project[] = [...projectsView.groups.flatMap(g => g.projects), ...projectsView.ungrouped]
@@ -179,7 +181,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center text-gray-400 text-sm">
-        加载中...
+        {t('loading')}
       </div>
     )
   }
@@ -188,9 +190,9 @@ export default function App() {
     <>
       {newProjectPrompt && (
         <PromptDialog
-          title="新建项目"
-          placeholder="项目名称"
-          confirmLabel="创建"
+          title={t('newProjectTitle')}
+          placeholder={t('newProjectPlaceholder')}
+          confirmLabel={t('create')}
           onConfirm={handleNewProjectConfirm}
           onCancel={() => setNewProjectPrompt(false)}
         />
@@ -267,7 +269,7 @@ export default function App() {
               <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between z-10">
                 <h2 className="text-sm font-semibold text-gray-800 truncate">
                   {selectedProjectId === ALL_PROJECTS_ID
-                    ? '全部任务'
+                    ? t('allProjects')
                     : projects.find(p => p.id === selectedProjectId)?.name ?? ''}
                 </h2>
                 <div className="flex items-center gap-1 ml-4 flex-shrink-0">
@@ -278,14 +280,14 @@ export default function App() {
                           onClick={handleBulkDelete}
                           className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 px-2.5 py-1.5 rounded-md hover:bg-red-50 transition-colors"
                         >
-                          删除 {selectedIds.size} 项
+                          {t('deleteN', selectedIds.size)}
                         </button>
                       )}
                       <button
                         onClick={exitSelectMode}
                         className="text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
                       >
-                        取消
+                        {t('cancelSelect')}
                       </button>
                     </>
                   ) : (
@@ -294,7 +296,7 @@ export default function App() {
                         <button
                           onClick={() => setSelectMode(true)}
                           className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                          title="批量管理"
+                          title={t('manage')}
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -309,7 +311,7 @@ export default function App() {
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                           </svg>
-                          新建任务
+                          {t('newTask')}
                         </button>
                       )}
                     </>
@@ -331,7 +333,7 @@ export default function App() {
             </>
           ) : (
             <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-              选择或创建一个项目
+              {t('selectOrCreateProject')}
             </div>
           )}
         </main>
@@ -392,6 +394,7 @@ function MobileLayout({
   onEditTask, onDeletedTask, onRefresh, onNewProject, onNewTask, onSettings, onTabChange,
   onReloadProjects,
 }: MobileProps) {
+  const t = useT()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [groupExpanded, setGroupExpanded] = useState<Record<string, boolean>>({})
   const selectedTaskId = selectedTask?.id
@@ -422,7 +425,7 @@ function MobileLayout({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <span className="text-sm font-medium text-gray-800">返回</span>
+              <span className="text-sm font-medium text-gray-800">{t('back')}</span>
             </div>
             <div className="flex-1 overflow-hidden">
               <TaskDetail
@@ -457,7 +460,7 @@ function MobileLayout({
 
         {/* Center: project name */}
         <h1 className="flex-1 text-center text-sm font-semibold text-gray-900 truncate px-2">
-          {currentProject?.name ?? 'Conductor'}
+          {currentProject?.name ?? t('conductor')}
         </h1>
 
         {/* Right: settings (same size as hamburger) */}
@@ -488,7 +491,7 @@ function MobileLayout({
                 : 'text-gray-400'
             }`}
           >
-            {{ all: '全部', human: '人类', ai: 'AI' }[tab]}
+            {{ all: t('allTab'), human: t('humanTab'), ai: t('aiTab') }[tab]}
           </button>
         ))}
       </div>
@@ -531,7 +534,7 @@ function MobileLayout({
         <div className="flex flex-col h-full bg-white/95 backdrop-blur-md shadow-2xl rounded-r-2xl overflow-hidden">
         {/* Drawer header */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100/80">
-          <h2 className="text-sm font-semibold text-gray-800">Conductor</h2>
+          <h2 className="text-sm font-semibold text-gray-800">{t('conductor')}</h2>
           <button
             onClick={() => setDrawerOpen(false)}
             className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-md"
@@ -555,7 +558,7 @@ function MobileLayout({
             <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
             </svg>
-            全部
+            {t('allProjects')}
           </button>
 
           {/* Groups */}
@@ -616,7 +619,7 @@ function MobileLayout({
             <div className={projectsView.groups.length > 0 ? 'border-t border-gray-50 mt-1 pt-1' : ''}>
               {projectsView.groups.length > 0 && (
                 <div className="px-4 py-1">
-                  <span className="text-xs text-gray-300 uppercase tracking-wider">未分组</span>
+                  <span className="text-xs text-gray-300 uppercase tracking-wider">{t('groupNone')}</span>
                 </div>
               )}
               {activeUngrouped.map(p => (
@@ -642,7 +645,7 @@ function MobileLayout({
           {/* Archived */}
           {archivedProjects.length > 0 && (
             <div className="mt-3 px-4 border-t border-gray-50 pt-2">
-              <span className="text-xs text-gray-300">已归档</span>
+              <span className="text-xs text-gray-300">{t('archived')}</span>
               {archivedProjects.map(p => (
                 <button
                   key={p.id}
@@ -665,7 +668,7 @@ function MobileLayout({
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            新建项目
+            {t('newProject')}
           </button>
           <button
             onClick={async () => {

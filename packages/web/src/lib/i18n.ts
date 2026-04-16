@@ -146,6 +146,7 @@ const translations = {
     groupLabel: '所属分组',
     groupNone: '无分组',
     pinnedLabel: '置顶',
+    pinnedSidebarLabel: '固定显示在侧边栏',
     archiveProject: '归档',
     unarchiveProject: '取消归档',
     deleteProject: '删除项目',
@@ -206,6 +207,25 @@ const translations = {
     runFailed: '✗ 失败',
     runRunning: '执行中',
     runCancelled: '已取消',
+
+    // Run/log status
+    skipped: '跳过',
+
+    // Timeline / task list
+    nextRunAt: '下次：',
+    pendingN: (n: number) => `${n} 条待处理`,
+    more: (n: number) => `更多 (${n})`,
+
+    // Group management
+    groupNamePlaceholder: '分组名称',
+    newGroup: '新建分组',
+    ungrouped: '未分组',
+    groupSettings: '分组设置',
+    deleteGroup: '删除分组',
+    confirmDeleteGroup: (name: string) => `删除分组「${name}」？分组内项目将移到未分组。`,
+
+    // Loading prompt
+    loadingPrompt: '加载中...',
   },
 
   en: {
@@ -335,6 +355,7 @@ const translations = {
     groupLabel: 'Group',
     groupNone: 'No group',
     pinnedLabel: 'Pinned',
+    pinnedSidebarLabel: 'Pin to sidebar',
     archiveProject: 'Archive',
     unarchiveProject: 'Unarchive',
     deleteProject: 'Delete project',
@@ -395,6 +416,25 @@ const translations = {
     runFailed: '✗ Failed',
     runRunning: 'Running',
     runCancelled: 'Cancelled',
+
+    // Run/log status
+    skipped: 'Skipped',
+
+    // Timeline / task list
+    nextRunAt: 'Next: ',
+    pendingN: (n: number) => `${n} pending`,
+    more: (n: number) => `More (${n})`,
+
+    // Group management
+    groupNamePlaceholder: 'Group name',
+    newGroup: 'New group',
+    ungrouped: 'Ungrouped',
+    groupSettings: 'Group settings',
+    deleteGroup: 'Delete group',
+    confirmDeleteGroup: (name: string) => `Delete group "${name}"? Projects will be moved to ungrouped.`,
+
+    // Loading prompt
+    loadingPrompt: 'Loading...',
   },
 } as const
 

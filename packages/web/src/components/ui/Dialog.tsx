@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '../../lib/i18n'
 
 // ─── Confirm Dialog ────────────────────────────────────────────────────────────
 
@@ -12,9 +13,13 @@ interface ConfirmProps {
 }
 
 export function ConfirmDialog({
-  message, confirmLabel = '确定', cancelLabel = '取消',
+  message, confirmLabel, cancelLabel,
   danger = false, onConfirm, onCancel,
 }: ConfirmProps) {
+  const t = useT()
+  const resolvedConfirmLabel = confirmLabel ?? t('confirm')
+  const resolvedCancelLabel = cancelLabel ?? t('cancel')
+
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[100] p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
@@ -24,7 +29,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800 rounded-md hover:bg-gray-100"
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </button>
           <button
             onClick={onConfirm}
@@ -34,7 +39,7 @@ export function ConfirmDialog({
                 : 'bg-blue-500 text-white hover:bg-blue-600'
             }`}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </button>
         </div>
       </div>
@@ -55,8 +60,10 @@ interface PromptProps {
 
 export function PromptDialog({
   title, placeholder = '', defaultValue = '',
-  confirmLabel = '确定', onConfirm, onCancel,
+  confirmLabel, onConfirm, onCancel,
 }: PromptProps) {
+  const t = useT()
+  const resolvedConfirmLabel = confirmLabel ?? t('confirm')
   const [value, setValue] = useState(defaultValue)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -88,14 +95,14 @@ export function PromptDialog({
               onClick={onCancel}
               className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800 rounded-md hover:bg-gray-100"
             >
-              取消
+              {t('cancel')}
             </button>
             <button
               type="submit"
               disabled={!value.trim()}
               className="px-4 py-1.5 text-sm font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-40"
             >
-              {confirmLabel}
+              {resolvedConfirmLabel}
             </button>
           </div>
         </form>

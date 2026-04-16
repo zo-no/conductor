@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Project, Task } from '@conductor/types'
 import { groupTasksForTimeline } from '../../lib/timeline'
 import { TaskRow } from './TaskRow'
+import { useT } from '../../lib/i18n'
 
 interface Props {
   tasks: Task[]
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function Timeline({ tasks, projects, assigneeFilter, onSelect, onRefresh, selectedTaskId, selectMode, selectedIds, onToggleSelect }: Props) {
+  const t = useT()
   const [recurringExpanded, setRecurringExpanded] = useState(true)
   const [doneExpanded, setDoneExpanded] = useState(false)
 
@@ -34,7 +36,7 @@ export function Timeline({ tasks, projects, assigneeFilter, onSelect, onRefresh,
               <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-700">{project.name}</h3>
                 {pendingCount > 0 && (
-                  <span className="text-xs text-gray-400">{pendingCount} 条待处理</span>
+                  <span className="text-xs text-gray-400">{t('pendingN', pendingCount)}</span>
                 )}
               </div>
               <Timeline
@@ -78,7 +80,7 @@ export function Timeline({ tasks, projects, assigneeFilter, onSelect, onRefresh,
         <svg className="w-10 h-10 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
-        <span className="text-sm text-gray-400">暂无任务</span>
+        <span className="text-sm text-gray-400">{t('noTasks')}</span>
       </div>
     )
   }
@@ -89,7 +91,7 @@ export function Timeline({ tasks, projects, assigneeFilter, onSelect, onRefresh,
         if (group.kind === 'date') {
           const visibleTasks = group.tasks.filter(t => !inlinedHumanTaskIds.has(t.id))
           if (visibleTasks.length === 0) return null
-          const isToday = group.label === '今天'
+          const isToday = group.label === t('today')
           return (
             <section key={group.label}>
               <h3 className={`text-xs font-semibold px-3 mb-2 ${
@@ -129,7 +131,7 @@ export function Timeline({ tasks, projects, assigneeFilter, onSelect, onRefresh,
                 >
                   <path d="M8 5v14l11-7z" />
                 </svg>
-                周期任务
+                {t('recurring')}
                 <span className="text-gray-300 font-normal normal-case tracking-normal">
                   ({group.tasks.length})
                 </span>
@@ -157,7 +159,7 @@ export function Timeline({ tasks, projects, assigneeFilter, onSelect, onRefresh,
           return (
             <section key="no_time">
               <h3 className="text-xs text-gray-300 px-3 mb-1">
-                无时间
+                {t('noTime')}
               </h3>
               <div className="space-y-0.5">
                 {visibleTasks.map(task => (
@@ -191,7 +193,7 @@ export function Timeline({ tasks, projects, assigneeFilter, onSelect, onRefresh,
                 >
                   <path d="M8 5v14l11-7z" />
                 </svg>
-                已完成
+                {t('done')}
                 <span className="text-gray-300 font-normal normal-case tracking-normal">
                   ({group.tasks.length})
                 </span>

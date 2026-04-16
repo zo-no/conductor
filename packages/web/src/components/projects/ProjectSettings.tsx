@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Project, ProjectGroup } from '@conductor/types'
 import { api } from '../../lib/api'
 import { ConfirmDialog } from '../ui/Dialog'
+import { useT } from '../../lib/i18n'
 
 interface Props {
   project: Project
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function ProjectSettings({ project, onDone, onDelete }: Props) {
+  const t = useT()
   const [name, setName] = useState(project.name)
   const [goal, setGoal] = useState(project.goal ?? '')
   const [workDir, setWorkDir] = useState(project.workDir ?? '')
@@ -41,7 +43,7 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) { setError('项目名称不能为空'); return }
+    if (!name.trim()) { setError(t('projectNameRequired')); return }
     setSaving(true)
     setError('')
     try {
@@ -63,7 +65,7 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
       }
       onDone(updated)
     } catch (e: any) {
-      setError(e.message ?? '保存失败')
+      setError(e.message ?? t('saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -89,8 +91,8 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
     <>
       {confirmDelete && (
         <ConfirmDialog
-          message={`确定删除项目「${project.name}」？此操作不可撤销，项目下所有任务也会被删除。`}
-          confirmLabel="删除"
+          message={t('confirmDeleteProject', project.name)}
+          confirmLabel={t('confirmDelete')}
           danger
           onConfirm={handleDeleteConfirmed}
           onCancel={() => setConfirmDelete(false)}
@@ -98,8 +100,8 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
       )}
       {confirmArchive && (
         <ConfirmDialog
-          message={project.archived ? `取消归档「${project.name}」？` : `归档项目「${project.name}」？`}
-          confirmLabel={project.archived ? '取消归档' : '归档'}
+          message={project.archived ? t('confirmUnarchiveProject', project.name) : t('confirmArchiveProject', project.name)}
+          confirmLabel={project.archived ? t('unarchiveProject') : t('archiveProject')}
           onConfirm={handleArchiveConfirmed}
           onCancel={() => setConfirmArchive(false)}
         />
@@ -114,7 +116,7 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
               {/* Archive icon */}
               <button
                 onClick={() => setConfirmArchive(true)}
-                title={project.archived ? '取消归档' : '归档'}
+                title={project.archived ? t('unarchiveProject') : t('archiveProject')}
                 className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-md"
               >
                 {project.archived ? (
@@ -130,7 +132,7 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
               {/* Delete icon */}
               <button
                 onClick={() => setConfirmDelete(true)}
-                title="删除项目"
+                title={t('deleteProject')}
                 className="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-400 rounded-md"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -156,7 +158,7 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
               <input
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="项目名称"
+                placeholder={t('projectNamePlaceholder')}
                 autoFocus
                 className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-400"
               />
@@ -165,7 +167,7 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
               <textarea
                 value={goal}
                 onChange={e => setGoal(e.target.value)}
-                placeholder="目标描述（注入 AI 上下文）"
+                placeholder={t('goalPlaceholder')}
                 rows={2}
                 className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 resize-none"
               />
@@ -174,20 +176,20 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
               <input
                 value={workDir}
                 onChange={e => setWorkDir(e.target.value)}
-                placeholder="工作目录  ~/projects/xxx"
+                placeholder={t('workDirSettingsPlaceholder')}
                 className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 font-mono text-xs"
               />
 
               {/* Group */}
               {groups.length > 0 && (
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">所属分组</label>
+                  <label className="block text-xs text-gray-400 mb-1">{t('groupLabel')}</label>
                   <select
                     value={groupId}
                     onChange={e => setGroupId(e.target.value)}
                     className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 bg-white"
                   >
-                    <option value="">未分组</option>
+                    <option value="">{t('ungrouped')}</option>
                     {groups.map(g => (
                       <option key={g.id} value={g.id}>{g.name}</option>
                     ))}
@@ -197,7 +199,7 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
 
               {/* Pinned */}
               <label className="flex items-center justify-between cursor-pointer select-none">
-                <span className="text-sm text-gray-600">固定显示在侧边栏</span>
+                <span className="text-sm text-gray-600">{t('pinnedSidebarLabel')}</span>
                 <div
                   onClick={() => setPinned(v => !v)}
                   className={[
@@ -214,11 +216,11 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
 
               {/* Prompt */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">系统 Prompt</label>
+                <label className="block text-xs text-gray-400 mb-1">{t('projectPromptLabel')}</label>
                 <textarea
                   value={promptContent}
                   onChange={e => setPromptContent(e.target.value)}
-                  placeholder={promptLoaded ? '输入项目级 Prompt，留空则不设置' : '加载中...'}
+                  placeholder={promptLoaded ? t('projectPromptPlaceholder') : t('loadingPrompt')}
                   disabled={!promptLoaded}
                   rows={3}
                   className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 resize-none font-mono text-xs"
@@ -235,14 +237,14 @@ export function ProjectSettings({ project, onDone, onDelete }: Props) {
                 onClick={() => onDone()}
                 className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
               >
-                取消
+                {t('cancel')}
               </button>
               <button
                 type="submit"
                 disabled={saving}
                 className="px-4 py-1.5 text-sm font-medium bg-gray-900 text-white rounded-md hover:bg-gray-800 disabled:opacity-50"
               >
-                {saving ? '保存中…' : '保存'}
+                {saving ? t('saving') : t('save')}
               </button>
             </div>
           </form>

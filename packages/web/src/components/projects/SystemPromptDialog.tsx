@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
+import { useT } from '../../lib/i18n'
 
 interface Props {
   onClose: () => void
 }
 
 export function SystemPromptDialog({ onClose }: Props) {
+  const t = useT()
   const [content, setContent] = useState('')
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -37,8 +39,8 @@ export function SystemPromptDialog({ onClose }: Props) {
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[80vh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">系统 Prompt</h2>
-            <p className="text-xs text-gray-400 mt-0.5">对所有 AI 任务生效，优先级最低</p>
+            <h2 className="text-sm font-semibold text-gray-900">{t('systemPromptTitle')}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{t('systemPromptSubtitle')}</p>
           </div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -49,12 +51,12 @@ export function SystemPromptDialog({ onClose }: Props) {
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {!loaded ? (
-            <p className="text-xs text-gray-400">加载中...</p>
+            <p className="text-xs text-gray-400">{t('loadingPrompt')}</p>
           ) : (
             <textarea
               value={content}
               onChange={e => setContent(e.target.value)}
-              placeholder="输入系统级 Prompt，对所有项目的 AI 任务生效。留空则清除。"
+              placeholder={t('systemPromptPlaceholder')}
               rows={10}
               className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none font-mono text-xs"
               autoFocus
@@ -67,14 +69,14 @@ export function SystemPromptDialog({ onClose }: Props) {
             onClick={onClose}
             className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800 rounded-md hover:bg-gray-100"
           >
-            取消
+            {t('cancel')}
           </button>
           <button
             onClick={handleSave}
             disabled={saving || !loaded}
             className="px-4 py-1.5 text-sm font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
           >
-            {saving ? '保存中...' : '保存'}
+            {saving ? t('saving') : t('save')}
           </button>
         </div>
       </div>
